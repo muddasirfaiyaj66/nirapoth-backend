@@ -1,6 +1,4 @@
-// Nirapoth (নিরাপথ) - Database Schema
-// A comprehensive vehicle management and safety platform for Bangladesh
-// Learn more about Prisma: https://pris.ly/d/prisma-schema
+
 
 generator client {
   provider = "prisma-client-js"
@@ -15,6 +13,7 @@ datasource db {
 // ENUMS
 //
 enum UserRole {
+  SUPER_ADMIN
   ADMIN
   POLICE
   DRIVER
@@ -27,142 +26,449 @@ enum ComplaintType {
   INFRASTRUCTURE
 }
 
+enum CameraStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  OFFLINE
+}
+
+enum VehicleType {
+  CAR
+  MOTORCYCLE
+  TRUCK
+  BUS
+  BICYCLE
+  OTHER
+}
+
+enum ViolationStatus {
+  PENDING
+  CONFIRMED
+  DISPUTED
+  RESOLVED
+}
+
+enum FineStatus {
+  UNPAID
+  PAID
+  CANCELLED
+  DISPUTED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  MOBILE_MONEY
+  ONLINE
+}
+
+enum AddressType {
+  HOME
+  OFFICE
+  STATION
+  SERVICE_CENTER
+  OTHER
+}
+
+enum LocationType {
+  POLICE_STATION
+  FIRE_SERVICE
+  CAMERA
+  INCIDENT
+  COMPLAINT
+  VIOLATION
+}
+
+enum PoliceHierarchyLevel {
+  HEADQUARTERS      // National/Central level
+  RANGE            // Regional level
+  DISTRICT         // District level  
+  CIRCLE           // Circle level
+  STATION          // Station level (actual police stations)
+  OUTPOST          // Sub-station/outpost level
+}
+
+enum StationStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_CONSTRUCTION
+  TEMPORARY_CLOSED
+}
+
 //
-// MODELS
+// NORMALIZED MODELS
 //
-model User {
-  id           String          @id @default(uuid())
-  name         String
-  phone        String
-  email        String          @unique
-  password     String
-  role         UserRole        @default(CITIZEN)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime?       @updatedAt
+
+// Location management - normalized to eliminate redundant lat/lng data
+model Location {
+  id          String      @id @default(uuid())
+  latitude    Float
+  longitude   Float
+  address     String?
+  city        String?
+  district    String?
+  division    String?
+  country     String      @default("Bangladesh")
+  postalCode  String?
+  type        LocationType
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   // Relations
-  stationId    String?
-  station      PoliceStation?  @relation(fields: [stationId], references: [id])
-  vehiclesOwned  Vehicle[]     @relation("OwnerVehicles")
-  vehiclesDriven Vehicle[]     @relation("DriverVehicles")
+  policeOrganizations PoliceOrganization[]
+  policeStations      PoliceStation[]
+  fireServices        FireService[]
+  cameras             Camera[]
+  violations          Violation[]
+  incidents           Incident[]
+  complaints          Complaint[]
+
+  @@index([latitude, longitude])
+  @@index([type])
+  @@map("locations")
+}
+
+// Contact information - normalized to avoid repetition
+model ContactInfo {
+  id          String   @id @default(uuid())
+  phone       String?
+  email       String?
+  website     String?
+  emergencyPhone String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  policeOrganizations PoliceOrganization[]
+  policeStations      PoliceStation[]
+  fireServices        FireService[]
+
+  @@map("contact_info")
+}
+
+//
+// HIERARCHICAL POLICE ORGANIZATION MODELS
+//
+
+// Police organizational hierarchy - normalized structure
+model PoliceOrganization {
+  id            String              @id @default(uuid())
+  name          String              // e.g., "Bangladesh Police", "Dhaka Metropolitan Police"
+  code          String              @unique // e.g., "BP", "DMP", "RMP"
+  level         PoliceHierarchyLevel
+  description   String?
+  
+  // Self-referencing hierarchy
+  parentId      String?
+  parent        PoliceOrganization? @relation("Hierarchy", fields: [parentId], references: [id])
+  children      PoliceOrganization[] @relation("Hierarchy")
+  
+  // Relations to actual stations
+  stations      PoliceStation[]
+  
+  // Normalized location and contact
+  locationId    String?
+  location      Location?           @relation(fields: [locationId], references: [id])
+  contactId     String?
+  contact       ContactInfo?        @relation(fields: [contactId], references: [id])
+  
+  // Administrative details
+  headOfficerId String?             // Officer in charge
+  headOfficer   User?               @relation("OrganizationHead", fields: [headOfficerId], references: [id])
+  
+  isActive      Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([level])
+  @@index([parentId])
+  @@index([code])
+  @@index([isActive])
+  @@map("police_organizations")
+}
+
+//
+// CORE MODELS
+//
+model User {
+  id                    String          @id @default(uuid())
+  firstName             String
+  lastName              String
+  phone                 String
+  email                 String          @unique
+  password              String
+  role                  UserRole        @default(CITIZEN)
+  designation           String?         // Job title/position (e.g., "Inspector", "Sub-Inspector", "Constable", "Chief", etc.)
+  nidNo                 String?         @unique
+  birthCertificateNo    String?         @unique
+  profileImage          String?
+  
+  // Email verification fields
+  isEmailVerified       Boolean         @default(false)
+  emailVerificationToken String?
+  emailVerificationExpires DateTime?
+  
+  // Password reset fields
+  passwordResetToken    String?
+  passwordResetExpires  DateTime?
+  
+  // Status fields
+  isDeleted             Boolean         @default(false)
+  isBlocked             Boolean         @default(false)
+  
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  // Relations
+  stationId      String?
+  station        PoliceStation?  @relation(fields: [stationId], references: [id])
+  
+  // Police hierarchy relations
+  headsOrganizations PoliceOrganization[] @relation("OrganizationHead")
+  stationAsOC        PoliceStation[]     @relation("StationOC")
+  
+  vehiclesOwned  Vehicle[]       @relation("OwnerVehicles")
+  vehiclesDriven Vehicle[]       @relation("DriverVehicles")
   payments       Payment[]
   driverGem      DriverGem?
+  incidents      Incident[]
+  complaints     Complaint[]
 
+  @@index([email])
+  @@index([nidNo])
+  @@index([birthCertificateNo])
+  @@index([isEmailVerified])
   @@map("users")
 }
 
 model PoliceStation {
-  id        String   @id @default(uuid())
-  name      String
-  address   String?
-  latitude  Float?
-  longitude Float?
-  cameras   Camera[]
-  users     User[]
+  id              String             @id @default(uuid())
+  name            String
+  code            String             @unique  // Station code (e.g., "DMP-RAM-001", "RMP-CTG-002")
+  stationType     String?            // "THANA", "OUTPOST", "TRAFFIC", "SPECIAL"
+  status          StationStatus      @default(ACTIVE)
+  
+  // Hierarchical organization relation
+  organizationId  String?
+  organization    PoliceOrganization? @relation(fields: [organizationId], references: [id])
+  
+  // Normalized relations
+  locationId      String?
+  location        Location?          @relation(fields: [locationId], references: [id])
+  contactId       String?
+  contact         ContactInfo?       @relation(fields: [contactId], references: [id])
+  
+  // Station management
+  officerInChargeId String?          // OC (Officer in Charge)
+  officerInCharge   User?            @relation("StationOC", fields: [officerInChargeId], references: [id])
+  
+  // Capacity and resources
+  capacity        Int?               // Number of officers/staff capacity
+  currentStrength Int?               // Current number of officers
+  
+  // Relations
+  cameras         Camera[]
+  users           User[]            // Officers assigned to this station
+  incidents       Incident[]        // Incidents handled by this station
+  complaints      Complaint[]       // Complaints filed at this station
+  
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
+  @@index([code])
+  @@index([organizationId])
+  @@index([status])
+  @@index([stationType])
   @@map("police_stations")
 }
 
 model FireService {
-  id        String   @id @default(uuid())
-  name      String
-  latitude  Float?
-  longitude Float?
-  cameras   Camera[]
+  id          String      @id @default(uuid())
+  name        String
+  code        String      @unique  // Service code (e.g., "FSCD-DHK-01")
+  
+  // Normalized relations
+  locationId   String?
+  location     Location?   @relation(fields: [locationId], references: [id])
+  contactId    String?
+  contact      ContactInfo? @relation(fields: [contactId], references: [id])
+  
+  // Relations
+  cameras      Camera[]
+  
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
+  @@index([code])
   @@map("fire_services")
 }
 
 model Camera {
-  id           String         @id @default(uuid())
-  latitude     Float?
-  longitude    Float?
-  streamUrl    String
-  installedAt  DateTime
-  status       String
-  stationId    String?
-  station      PoliceStation? @relation(fields: [stationId], references: [id])
+  id            String         @id @default(uuid())
+  name          String?        // Camera identifier/name
+  streamUrl     String
+  installedAt   DateTime
+  status        CameraStatus   @default(ACTIVE)
+  
+  // Normalized location
+  locationId    String?
+  location      Location?      @relation(fields: [locationId], references: [id])
+  
+  // Relations to stations/services
+  stationId     String?
+  station       PoliceStation? @relation(fields: [stationId], references: [id])
   fireServiceId String?
-  fireService   FireService?  @relation(fields: [fireServiceId], references: [id])
+  fireService   FireService?   @relation(fields: [fireServiceId], references: [id])
+  
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
+  @@index([status])
+  @@index([installedAt])
   @@map("cameras")
 }
 
 model Rule {
   id          String      @id @default(uuid())
   code        String      @unique
+  title       String      // Short title for the rule
   description String
-  penalty     Int?
+  penalty     Int?        // Default penalty amount
+  isActive    Boolean     @default(true)
+  
   violations  Violation[]
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
+  @@index([code])
+  @@index([isActive])
   @@map("rules")
 }
 
 model Vehicle {
   id           String      @id @default(uuid())
-  type         String
+  type         VehicleType
   plateNo      String      @unique
+  make         String?     // Vehicle manufacturer (Toyota, Honda, etc.)
+  model        String?     // Vehicle model (Corolla, Civic, etc.)
+  year         Int?        // Manufacturing year
+  color        String?     // Vehicle color
+  
   ownerId      String
   owner        User        @relation("OwnerVehicles", fields: [ownerId], references: [id])
   driverId     String? 
   driver       User?       @relation("DriverVehicles", fields: [driverId], references: [id])
+  
   registeredAt DateTime    @default(now())
+  expiresAt    DateTime?   // Registration expiry date
+  isDeleted    Boolean     @default(false)
+  isActive     Boolean     @default(true)
+  
   violations   Violation[]
+  
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
+  @@index([plateNo])
+  @@index([ownerId])
+  @@index([driverId])
+  @@index([isActive])
   @@map("vehicles")
 }
 
 model Violation {
-  id          String   @id @default(uuid())
+  id          String          @id @default(uuid())
   ruleId      String
-  rule        Rule     @relation(fields: [ruleId], references: [id])
+  rule        Rule            @relation(fields: [ruleId], references: [id])
   vehicleId   String
-  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
-  latitude    Float?
-  longitude   Float?
+  vehicle     Vehicle         @relation(fields: [vehicleId], references: [id])
+  
+  // Normalized location
+  locationId  String?
+  location    Location?       @relation(fields: [locationId], references: [id])
+  
   description String?
-  status      String
-  createdAt   DateTime @default(now())
+  status      ViolationStatus @default(PENDING)
+  evidenceUrl String?         // Photo/video evidence URL
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
   fine        Fine?
 
+  @@index([vehicleId])
+  @@index([ruleId])
+  @@index([status])
+  @@index([createdAt])
   @@map("violations")
 }
 
 model Fine {
-  id          String    @id @default(uuid())
-  violationId String    @unique
-  violation   Violation @relation(fields: [violationId], references: [id])
+  id          String      @id @default(uuid())
+  violationId String      @unique
+  violation   Violation   @relation(fields: [violationId], references: [id])
   amount      Int
-  status      Boolean   @default(false) // paid/unpaid
-  issuedAt    DateTime  @default(now())
+  status      FineStatus  @default(UNPAID)
+  dueDate     DateTime?   // When the fine is due
+  issuedAt    DateTime    @default(now())
+  paidAt      DateTime?   // When fully paid
   payments    Payment[]
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
+  @@index([status])
+  @@index([dueDate])
+  @@index([issuedAt])
   @@map("fines")
 }
 
 model Payment {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  fineId      String
-  fine        Fine     @relation(fields: [fineId], references: [id])
-  amount      Int
-  paidAt      DateTime
-  paidThrough String
-  createdAt   DateTime @default(now())
+  id              String        @id @default(uuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  fineId          String
+  fine            Fine          @relation(fields: [fineId], references: [id])
+  amount          Int
+  transactionId   String?       // External transaction reference
+  paymentMethod   PaymentMethod
+  paymentStatus   String        @default("COMPLETED") // PENDING, COMPLETED, FAILED, REFUNDED
+  
+  paidAt          DateTime
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
+  @@index([userId])
+  @@index([fineId])
+  @@index([paymentStatus])
+  @@index([paidAt])
   @@map("payments")
 }
 
 model Incident {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  latitude    Float?
-  longitude   Float?
-  reportedBy  String?
-  createdAt   DateTime @default(now())
+  id           String    @id @default(uuid())
+  title        String
+  description  String?
+  priority     String?   // HIGH, MEDIUM, LOW
+  
+  // Normalized location
+  locationId   String?
+  location     Location? @relation(fields: [locationId], references: [id])
+  
+  reportedById String?
+  reportedBy   User?     @relation(fields: [reportedById], references: [id])
+  
+  // Police station handling this incident
+  handlingStationId String?
+  handlingStation   PoliceStation? @relation(fields: [handlingStationId], references: [id])
+  
+  resolvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
+  @@index([priority])
+  @@index([createdAt])
   @@map("incidents")
 }
 
@@ -171,18 +477,40 @@ model Complaint {
   type         ComplaintType
   title        String
   description  String?
-  latitude     Float?
-  longitude    Float?
+  priority     String?       // HIGH, MEDIUM, LOW
+  status       String        @default("PENDING") // PENDING, IN_PROGRESS, RESOLVED, CLOSED
+  
+  // Normalized location
+  locationId   String?
+  location     Location?     @relation(fields: [locationId], references: [id])
+  
   complainerId String?
+  complainer   User?         @relation(fields: [complainerId], references: [id])
+  
+  // Police station handling this complaint
+  handlingStationId String?
+  handlingStation   PoliceStation? @relation(fields: [handlingStationId], references: [id])
+  
+  resolvedAt   DateTime?
   createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
+  @@index([type])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
   @@map("complaints")
 }
 
 model DriverGem {
-  driverId String @id
-  driver   User   @relation(fields: [driverId], references: [id])
-  amount   Int    @default(0)
+  driverId     String   @id
+  driver       User     @relation(fields: [driverId], references: [id])
+  amount       Int      @default(0)
+  isRestricted Boolean  @default(false)
+  lastUpdated  DateTime @default(now())
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("driver_gems")
 }

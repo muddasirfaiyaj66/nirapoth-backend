@@ -1,49 +1,122 @@
 import express, { Request, Response } from "express";
+import cookieParser from "cookie-parser";
 import { PrismaClient } from "@prisma/client";
+import { config } from "./config/env";
+import { SeedService } from "./services/seed.service";
+
+// Import middleware
+import {
+  corsMiddleware,
+  securityMiddleware,
+  requestLogger,
+  requestSizeLimiter,
+  responseTimeHeader,
+} from "./middlewares/security.middleware";
+import { rateLimiter } from "./middlewares/rateLimit.middleware";
+import {
+  errorHandler,
+  notFoundHandler,
+} from "./middlewares/errorHandler.middleware";
+
+// Import routes
+import authRoutes from "./routes/auth.routes";
+import profileRoutes from "./routes/profile.routes";
 
 const app = express();
 const prisma = new PrismaClient();
-const PORT = process.env.PORT || 3000;
+const PORT = config.port;
 
-app.use(express.json());
+// Trust proxy for accurate IP addresses (important for rate limiting)
+app.set("trust proxy", 1);
 
-// Test route to check if server is running
+// Security middleware (must be first)
+app.use(securityMiddleware);
+app.use(corsMiddleware);
+app.use(responseTimeHeader);
+
+// Body parsing middleware
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(cookieParser());
+
+// Request size limiting
+app.use(requestSizeLimiter);
+
+// Request logging (in development)
+if (config.nodeEnv === "development") {
+  app.use(requestLogger);
+}
+
+// Rate limiting for all routes
+app.use(rateLimiter);
+
+// Health check route
+app.get("/health", (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    message: "Nirapoth Backend is running!",
+    timestamp: new Date().toISOString(),
+    environment: config.nodeEnv,
+    statusCode: 200,
+  });
+});
+
+// API routes
+app.use("/api/auth", authRoutes);
+app.use("/api/profile", profileRoutes);
+
+// Test route to check if server is running (legacy)
 app.get("/", (req: Request, res: Response) => {
-  res.json({ message: "Nirapoth Backend is running!" });
+  res.json({
+    success: true,
+    message: "Nirapoth Backend is running!",
+    timestamp: new Date().toISOString(),
+    environment: config.nodeEnv,
+    statusCode: 200,
+  });
 });
 
-// Test route to create a user
-app.post("/users", async (req: Request, res: Response) => {
-  try {
-    const { email, name } = req.body;
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name,
-      },
-    });
-    res.json(user);
-  } catch (error) {
-    res.status(400).json({ error: "Failed to create user" });
-  }
-});
+// 404 handler for undefined routes
+app.use(notFoundHandler);
 
-// Test route to get all users
-app.get("/users", async (req: Request, res: Response) => {
-  try {
-    const users = await prisma.user.findMany();
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch users" });
-  }
-});
+// Global error handler (must be last)
+app.use(errorHandler);
 
 // Gracefully disconnect Prisma when the app shuts down
 process.on("SIGINT", async () => {
+  console.log("Shutting down gracefully...");
   await prisma.$disconnect();
-  process.exit();
+  process.exit(0);
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+process.on("SIGTERM", async () => {
+  console.log("SIGTERM received, shutting down gracefully...");
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+// Handle unhandled promise rejections
+process.on("unhandledRejection", (err: Error) => {
+  console.error("Unhandled Promise Rejection:", err);
+  process.exit(1);
+});
+
+// Handle uncaught exceptions
+process.on("uncaughtException", (err: Error) => {
+  console.error("Uncaught Exception:", err);
+  process.exit(1);
+});
+
+app.listen(PORT, async () => {
+  console.log(`🚀 Nirapoth Backend Server is running!`);
+  console.log(`📍 Environment: ${config.nodeEnv}`);
+  console.log(`🌐 Server: http://localhost:${PORT}`);
+  console.log(`🏥 Health Check: http://localhost:${PORT}/health`);
+  console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth`);
+  console.log(`👤 Profile API: http://localhost:${PORT}/api/profile`);
+
+  // Run database initialization and seeding
+  console.log("\n" + "=".repeat(50));
+  await SeedService.runStartupSeeding();
+  console.log("=".repeat(50) + "\n");
 });

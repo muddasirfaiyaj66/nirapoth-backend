@@ -1,0 +1,187 @@
+import { Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+import cors from "cors";
+import { config } from "../config/env";
+import { AuthRequest } from "../types/auth";
+
+/**
+ * CORS configuration
+ */
+export const corsOptions = {
+  origin: (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void
+  ) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const allowedOrigins = [
+      config.cors.origin,
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:5173", // Vite default
+      "http://localhost:4173", // Vite preview
+    ];
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: [
+    "Origin",
+    "X-Requested-With",
+    "Content-Type",
+    "Accept",
+    "Authorization",
+    "Cache-Control",
+    "Pragma",
+  ],
+};
+
+/**
+ * CORS middleware
+ */
+export const corsMiddleware = cors(corsOptions);
+
+/**
+ * Helmet configuration for security headers
+ */
+export const helmetOptions = {
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+};
+
+/**
+ * Security middleware using Helmet
+ */
+export const securityMiddleware = helmet(helmetOptions);
+
+/**
+ * Request logging middleware
+ * @param req - Express request object
+ * @param res - Express response object
+ * @param next - Express next function
+ */
+export const requestLogger = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
+  const start = Date.now();
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    const logData = {
+      method: req.method,
+      url: req.originalUrl,
+      status: res.statusCode,
+      duration: `${duration}ms`,
+      ip: req.ip,
+      userAgent: req.get("User-Agent"),
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log("Request:", logData);
+  });
+
+  next();
+};
+
+/**
+ * Request size limiter middleware
+ * @param req - Express request object
+ * @param res - Express response object
+ * @param next - Express next function
+ */
+export const requestSizeLimiter = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
+  const contentLength = parseInt(req.get("content-length") || "0", 10);
+  const maxSize = 10 * 1024 * 1024; // 10MB
+
+  if (contentLength > maxSize) {
+    res.status(413).json({
+      success: false,
+      message: "Request entity too large",
+      statusCode: 413,
+    });
+    return;
+  }
+
+  next();
+};
+
+/**
+ * Response time header middleware
+ * @param req - Express request object
+ * @param res - Express response object
+ * @param next - Express next function
+ */
+export const responseTimeHeader = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
+  const start = Date.now();
+
+  // Override the end method to set header before sending response
+  const originalEnd = res.end.bind(res);
+  res.end = function (chunk?: any, encoding?: any, cb?: any): Response {
+    const duration = Date.now() - start;
+    res.setHeader("X-Response-Time", `${duration}ms`);
+    return originalEnd(chunk, encoding, cb);
+  };
+
+  next();
+};
+
+/**
+ * Admin-only access middleware
+ * Ensures only users with ADMIN role can access the route
+ * @param req - Express request object (with user attached by auth middleware)
+ * @param res - Express response object
+ * @param next - Express next function
+ */
+export const adminOnly = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void => {
+  const userRole = req.userRole;
+
+  if (!userRole) {
+    res.status(401).json({
+      success: false,
+      message: "Authentication required",
+      statusCode: 401,
+    });
+    return;
+  }
+
+  if (userRole !== "ADMIN") {
+    res.status(403).json({
+      success: false,
+      message: "Admin access required",
+      statusCode: 403,
+    });
+    return;
+  }
+
+  next();
+};
