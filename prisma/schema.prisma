@@ -1,0 +1,188 @@
+// Nirapoth (নিরাপথ) - Database Schema
+// A comprehensive vehicle management and safety platform for Bangladesh
+// Learn more about Prisma: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//
+// ENUMS
+//
+enum UserRole {
+  ADMIN
+  POLICE
+  DRIVER
+  FIRE_SERVICE
+  CITIZEN
+}
+
+enum ComplaintType {
+  TRAFFIC
+  INFRASTRUCTURE
+}
+
+//
+// MODELS
+//
+model User {
+  id           String          @id @default(uuid())
+  name         String
+  phone        String
+  email        String          @unique
+  password     String
+  role         UserRole        @default(CITIZEN)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime?       @updatedAt
+
+  // Relations
+  stationId    String?
+  station      PoliceStation?  @relation(fields: [stationId], references: [id])
+  vehiclesOwned  Vehicle[]     @relation("OwnerVehicles")
+  vehiclesDriven Vehicle[]     @relation("DriverVehicles")
+  payments       Payment[]
+  driverGem      DriverGem?
+
+  @@map("users")
+}
+
+model PoliceStation {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  latitude  Float?
+  longitude Float?
+  cameras   Camera[]
+  users     User[]
+
+  @@map("police_stations")
+}
+
+model FireService {
+  id        String   @id @default(uuid())
+  name      String
+  latitude  Float?
+  longitude Float?
+  cameras   Camera[]
+
+  @@map("fire_services")
+}
+
+model Camera {
+  id           String         @id @default(uuid())
+  latitude     Float?
+  longitude    Float?
+  streamUrl    String
+  installedAt  DateTime
+  status       String
+  stationId    String?
+  station      PoliceStation? @relation(fields: [stationId], references: [id])
+  fireServiceId String?
+  fireService   FireService?  @relation(fields: [fireServiceId], references: [id])
+
+  @@map("cameras")
+}
+
+model Rule {
+  id          String      @id @default(uuid())
+  code        String      @unique
+  description String
+  penalty     Int?
+  violations  Violation[]
+
+  @@map("rules")
+}
+
+model Vehicle {
+  id           String      @id @default(uuid())
+  type         String
+  plateNo      String      @unique
+  ownerId      String
+  owner        User        @relation("OwnerVehicles", fields: [ownerId], references: [id])
+  driverId     String? 
+  driver       User?       @relation("DriverVehicles", fields: [driverId], references: [id])
+  registeredAt DateTime    @default(now())
+  violations   Violation[]
+
+  @@map("vehicles")
+}
+
+model Violation {
+  id          String   @id @default(uuid())
+  ruleId      String
+  rule        Rule     @relation(fields: [ruleId], references: [id])
+  vehicleId   String
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
+  latitude    Float?
+  longitude   Float?
+  description String?
+  status      String
+  createdAt   DateTime @default(now())
+  fine        Fine?
+
+  @@map("violations")
+}
+
+model Fine {
+  id          String    @id @default(uuid())
+  violationId String    @unique
+  violation   Violation @relation(fields: [violationId], references: [id])
+  amount      Int
+  status      Boolean   @default(false) // paid/unpaid
+  issuedAt    DateTime  @default(now())
+  payments    Payment[]
+
+  @@map("fines")
+}
+
+model Payment {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  fineId      String
+  fine        Fine     @relation(fields: [fineId], references: [id])
+  amount      Int
+  paidAt      DateTime
+  paidThrough String
+  createdAt   DateTime @default(now())
+
+  @@map("payments")
+}
+
+model Incident {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  latitude    Float?
+  longitude   Float?
+  reportedBy  String?
+  createdAt   DateTime @default(now())
+
+  @@map("incidents")
+}
+
+model Complaint {
+  id           String        @id @default(uuid())
+  type         ComplaintType
+  title        String
+  description  String?
+  latitude     Float?
+  longitude    Float?
+  complainerId String?
+  createdAt    DateTime      @default(now())
+
+  @@map("complaints")
+}
+
+model DriverGem {
+  driverId String @id
+  driver   User   @relation(fields: [driverId], references: [id])
+  amount   Int    @default(0)
+
+  @@map("driver_gems")
+}
