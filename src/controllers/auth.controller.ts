@@ -53,7 +53,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const hashedToken = TokenService.hashToken(verificationToken);
     const tokenExpires = TokenService.getEmailVerificationExpiration();
 
-    // Create user
+    // Create user (always as CITIZEN - role can only be changed by admin)
     const user = await prisma.user.create({
       data: {
         firstName: validatedData.firstName,
@@ -61,7 +61,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         email: validatedData.email,
         password: hashedPassword,
         phone: validatedData.phone,
-        role: validatedData.role,
+        role: "CITIZEN", // Force CITIZEN role for all new registrations
         nidNo: validatedData.nidNo,
         birthCertificateNo: validatedData.birthCertificateNo,
         emailVerificationToken: hashedToken,
@@ -162,6 +162,33 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         createdAt: true,
         updatedAt: true,
         stationId: true,
+        // Additional profile fields
+        dateOfBirth: true,
+        gender: true,
+        bloodGroup: true,
+        alternatePhone: true,
+        emergencyContact: true,
+        emergencyContactPhone: true,
+        presentAddress: true,
+        presentCity: true,
+        presentDistrict: true,
+        presentDivision: true,
+        presentPostalCode: true,
+        permanentAddress: true,
+        permanentCity: true,
+        permanentDistrict: true,
+        permanentDivision: true,
+        permanentPostalCode: true,
+        drivingLicenseNo: true,
+        drivingLicenseIssueDate: true,
+        drivingLicenseExpiryDate: true,
+        drivingLicenseCategory: true,
+        isDrivingLicenseVerified: true,
+        badgeNo: true,
+        joiningDate: true,
+        serviceLength: true,
+        rank: true,
+        specialization: true,
       },
     });
 
@@ -352,6 +379,33 @@ export const refreshToken = async (
         isBlocked: true,
         createdAt: true,
         updatedAt: true,
+        // Additional profile fields
+        dateOfBirth: true,
+        gender: true,
+        bloodGroup: true,
+        alternatePhone: true,
+        emergencyContact: true,
+        emergencyContactPhone: true,
+        presentAddress: true,
+        presentCity: true,
+        presentDistrict: true,
+        presentDivision: true,
+        presentPostalCode: true,
+        permanentAddress: true,
+        permanentCity: true,
+        permanentDistrict: true,
+        permanentDivision: true,
+        permanentPostalCode: true,
+        drivingLicenseNo: true,
+        drivingLicenseIssueDate: true,
+        drivingLicenseExpiryDate: true,
+        drivingLicenseCategory: true,
+        isDrivingLicenseVerified: true,
+        badgeNo: true,
+        joiningDate: true,
+        serviceLength: true,
+        rank: true,
+        specialization: true,
       },
     });
 

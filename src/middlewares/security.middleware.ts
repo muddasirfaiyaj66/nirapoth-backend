@@ -152,11 +152,66 @@ export const responseTimeHeader = (
 };
 
 /**
+ * Role hierarchy utility types and functions
+ */
+export type UserRole =
+  | "SUPER_ADMIN"
+  | "ADMIN"
+  | "POLICE"
+  | "DRIVER"
+  | "FIRE_SERVICE"
+  | "CITIZEN";
+
+// Define role hierarchy (higher number = higher privilege)
+const ROLE_HIERARCHY: Record<UserRole, number> = {
+  SUPER_ADMIN: 100,
+  ADMIN: 80,
+  POLICE: 60,
+  FIRE_SERVICE: 50,
+  DRIVER: 40,
+  CITIZEN: 20,
+};
+
+/**
+ * Check if a user can manage another user based on role hierarchy
+ */
+export const canManageUser = (
+  managerRole: UserRole,
+  targetRole: UserRole
+): boolean => {
+  const managerLevel = ROLE_HIERARCHY[managerRole];
+  const targetLevel = ROLE_HIERARCHY[targetRole];
+
+  // Only SUPER_ADMIN can manage other SUPER_ADMINs
+  if (targetRole === "SUPER_ADMIN") {
+    return managerRole === "SUPER_ADMIN";
+  }
+
+  return managerLevel >= targetLevel;
+};
+
+/**
+ * Check if a user can assign a specific role to another user
+ */
+export const canAssignRole = (
+  managerRole: UserRole,
+  roleToAssign: UserRole
+): boolean => {
+  const managerLevel = ROLE_HIERARCHY[managerRole];
+  const roleLevel = ROLE_HIERARCHY[roleToAssign];
+
+  // Only SUPER_ADMIN can assign SUPER_ADMIN role
+  if (roleToAssign === "SUPER_ADMIN") {
+    return managerRole === "SUPER_ADMIN";
+  }
+
+  // Manager can assign roles at their level or below
+  return managerLevel > roleLevel;
+};
+
+/**
  * Admin-only access middleware
- * Ensures only users with ADMIN role can access the route
- * @param req - Express request object (with user attached by auth middleware)
- * @param res - Express response object
- * @param next - Express next function
+ * Ensures only users with ADMIN or SUPER_ADMIN role can access the route
  */
 export const adminOnly = (
   req: AuthRequest,
@@ -174,10 +229,52 @@ export const adminOnly = (
     return;
   }
 
-  if (userRole !== "ADMIN") {
+  if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
     res.status(403).json({
       success: false,
       message: "Admin access required",
+      statusCode: 403,
+    });
+    return;
+  }
+
+  next();
+};
+
+/**
+ * Middleware to check if user can manage target user
+ * Used for user management operations (block, delete, update)
+ */
+export const canManageTargetUser = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void => {
+  const userRole = req.userRole as UserRole;
+  const targetUserRole = req.body.targetRole || req.params.targetRole;
+
+  if (!userRole) {
+    res.status(401).json({
+      success: false,
+      message: "Authentication required",
+      statusCode: 401,
+    });
+    return;
+  }
+
+  if (!targetUserRole) {
+    res.status(400).json({
+      success: false,
+      message: "Target user role not specified",
+      statusCode: 400,
+    });
+    return;
+  }
+
+  if (!canManageUser(userRole, targetUserRole as UserRole)) {
+    res.status(403).json({
+      success: false,
+      message: "You don't have permission to manage this user",
       statusCode: 403,
     });
     return;

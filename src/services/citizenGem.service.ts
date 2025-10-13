@@ -55,7 +55,24 @@ export class CitizenGemService {
   }
 
   /**
-   * Gets citizen gem information including restriction status
+   * Sets restriction status for a citizen
+   */
+  static async setRestrictionStatus(citizenId: string, isRestricted: boolean) {
+    return await prisma.citizenGem.upsert({
+      where: { citizenId },
+      update: {
+        isRestricted,
+      },
+      create: {
+        citizenId,
+        amount: isRestricted ? 0 : 10, // Default starting gems
+        isRestricted,
+      },
+    });
+  }
+
+  /**
+   * Gets citizen gems information
    */
   static async getCitizenGems(citizenId: string) {
     return await prisma.citizenGem.findUnique({
@@ -67,8 +84,6 @@ export class CitizenGemService {
             firstName: true,
             lastName: true,
             email: true,
-            isBlocked: true,
-            isDeleted: true,
           },
         },
       },
@@ -76,28 +91,46 @@ export class CitizenGemService {
   }
 
   /**
-   * Manually set restriction status (admin function)
-   * Note: If gems <= 0, restriction will always be true regardless of manual setting
+   * Gets all citizens with their gem information
    */
-  static async setRestrictionStatus(citizenId: string, isRestricted: boolean) {
-    const currentGem = await prisma.citizenGem.findUnique({
-      where: { citizenId },
-    });
-
-    const currentAmount = currentGem?.amount || 0;
-
-    // If gems are <= 0, restriction must be true
-    const finalRestrictionStatus = currentAmount <= 0 ? true : isRestricted;
-
-    return await prisma.citizenGem.upsert({
-      where: { citizenId },
-      update: {
-        isRestricted: finalRestrictionStatus,
+  static async getAllCitizenGems() {
+    return await prisma.citizenGem.findMany({
+      include: {
+        citizen: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
       },
-      create: {
-        citizenId,
-        amount: currentAmount,
-        isRestricted: finalRestrictionStatus,
+      orderBy: {
+        updatedAt: "desc",
+      },
+    });
+  }
+
+  /**
+   * Gets citizens with low gems (potentially restricted)
+   */
+  static async getCitizensWithLowGems(threshold: number = 5) {
+    return await prisma.citizenGem.findMany({
+      where: {
+        amount: {
+          lte: threshold,
+        },
+      },
+      include: {
+        citizen: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
       },
     });
   }

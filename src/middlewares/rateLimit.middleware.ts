@@ -41,7 +41,7 @@ export const rateLimiter = async (
  */
 const authRateLimiter = new RateLimiterMemory({
   keyPrefix: "auth",
-  points: 5, // 5 attempts
+  points: 50000, // 50000 attempts
   duration: 900, // 15 minutes
   blockDuration: 900, // Block for 15 minutes after limit exceeded
 });
@@ -115,7 +115,7 @@ export const passwordResetRateLimiterMiddleware = async (
  */
 const registrationRateLimiter = new RateLimiterMemory({
   keyPrefix: "registration",
-  points: 3, // 3 attempts
+  points: 13, // 3 attempts
   duration: 3600, // 1 hour
   blockDuration: 3600, // Block for 1 hour after limit exceeded
 });

@@ -64,7 +64,7 @@ export class StatusUtils {
    * This should be run periodically or after batch operations
    */
   static async enforceDriverGemConstraints() {
-    const violations = await prisma.driverGem.findMany({
+    const violations = await prisma.citizenGem.findMany({
       where: {
         OR: [
           // Cases where gems <= 0 but not restricted
@@ -78,7 +78,7 @@ export class StatusUtils {
 
     if (violations.length > 0) {
       // Fix constraint violations
-      await prisma.driverGem.updateMany({
+      await prisma.citizenGem.updateMany({
         where: {
           amount: { lte: 0 },
         },

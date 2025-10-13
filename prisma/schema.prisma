@@ -16,7 +16,6 @@ enum UserRole {
   SUPER_ADMIN
   ADMIN
   POLICE
-  DRIVER
   FIRE_SERVICE
   CITIZEN
 }
@@ -95,6 +94,15 @@ enum StationStatus {
   INACTIVE
   UNDER_CONSTRUCTION
   TEMPORARY_CLOSED
+}
+
+enum LicenseCategory {
+  LIGHT_VEHICLE           // Light vehicle (cars, small vans)
+  MOTORCYCLE             // Motorcycle only
+  LIGHT_VEHICLE_MOTORCYCLE // Combined light vehicle + motorcycle
+  HEAVY_VEHICLE          // Heavy vehicles (trucks, buses)
+  PSV                    // Public Service Vehicle
+  GOODS_VEHICLE          // Commercial goods vehicle
 }
 
 //
@@ -205,6 +213,43 @@ model User {
   birthCertificateNo    String?         @unique
   profileImage          String?
   
+  // Personal Information
+  dateOfBirth           DateTime?
+  gender                String?         // "MALE", "FEMALE", "OTHER"
+  bloodGroup            String?         // "A+", "B+", "O+", etc.
+  
+  // Contact Information
+  alternatePhone        String?
+  emergencyContact      String?
+  emergencyContactPhone String?
+  
+  // Address Information
+  presentAddress        String?
+  presentCity           String?
+  presentDistrict       String?
+  presentDivision       String?
+  presentPostalCode     String?
+  
+  permanentAddress      String?
+  permanentCity         String?
+  permanentDistrict     String?
+  permanentDivision     String?
+  permanentPostalCode   String?
+  
+  // Driving License Information
+  drivingLicenseNo      String?         @unique
+  drivingLicenseIssueDate DateTime?
+  drivingLicenseExpiryDate DateTime?
+  drivingLicenseCategory String?       // "MOTORCYCLE", "CAR", "HEAVY", "PROFESSIONAL", etc.
+  isDrivingLicenseVerified Boolean     @default(false)
+  
+  // Professional Information (for police/fire service)
+  badgeNo              String?         @unique // Police badge number
+  joiningDate          DateTime?       // Date of joining service
+  serviceLength        Int?            // Years of service
+  rank                 String?         // Police rank (Constable, ASI, SI, Inspector, etc.)
+  specialization       String?         // Area of expertise
+  
   // Email verification fields
   isEmailVerified       Boolean         @default(false)
   emailVerificationToken String?
@@ -232,9 +277,12 @@ model User {
   vehiclesOwned  Vehicle[]       @relation("OwnerVehicles")
   vehiclesDriven Vehicle[]       @relation("DriverVehicles")
   payments       Payment[]
-  driverGem      DriverGem?
-  incidents      Incident[]
-  complaints     Complaint[]
+  citizenGem         CitizenGem?
+  incidents          Incident[]
+  complaints         Complaint[]
+  vehicleAssignments VehicleAssignment[] @relation("VehicleAssignments")
+  assignmentsMade    VehicleAssignment[] @relation("AssignmentsMade")
+  drivingLicenses    DrivingLicense[]    @relation("DrivingLicenses")
 
   @@index([email])
   @@index([nidNo])
@@ -352,10 +400,13 @@ model Vehicle {
   id           String      @id @default(uuid())
   type         VehicleType
   plateNo      String      @unique
-  make         String?     // Vehicle manufacturer (Toyota, Honda, etc.)
+  brand        String?     // Vehicle manufacturer (Toyota, Honda, etc.) - renamed from make
   model        String?     // Vehicle model (Corolla, Civic, etc.)
   year         Int?        // Manufacturing year
   color        String?     // Vehicle color
+  engineNo     String      @unique // Engine number - required field
+  chassisNo    String      @unique // Chassis number - required field
+  registrationNo String?   @unique // Registration number - optional separate from plate
   
   ownerId      String
   owner        User        @relation("OwnerVehicles", fields: [ownerId], references: [id])
@@ -368,11 +419,14 @@ model Vehicle {
   isActive     Boolean     @default(true)
   
   violations   Violation[]
+  assignments  VehicleAssignment[]
   
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
   @@index([plateNo])
+  @@index([engineNo])
+  @@index([chassisNo])
   @@index([ownerId])
   @@index([driverId])
   @@index([isActive])
@@ -502,9 +556,9 @@ model Complaint {
   @@map("complaints")
 }
 
-model DriverGem {
-  driverId     String   @id
-  driver       User     @relation(fields: [driverId], references: [id])
+model CitizenGem {
+  citizenId    String   @id
+  citizen      User     @relation(fields: [citizenId], references: [id])
   amount       Int      @default(0)
   isRestricted Boolean  @default(false)
   lastUpdated  DateTime @default(now())
@@ -512,5 +566,87 @@ model DriverGem {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@map("driver_gems")
+  @@map("citizen_gems")
+}
+
+// Driving License Management System
+model DrivingLicense {
+  id              String    @id @default(uuid())
+  licenseNo       String    @unique
+  citizenId       String    
+  citizen         User      @relation("DrivingLicenses", fields: [citizenId], references: [id])
+  
+  // License Details
+  category        LicenseCategory // Enum for license categories
+  issueDate       DateTime
+  expiryDate      DateTime
+  issuingAuthority String   // "BRTA", "DISTRICT_TRANSPORT", etc.
+  
+  // Status and Verification
+  isActive        Boolean   @default(true)
+  isVerified      Boolean   @default(false)
+  verifiedBy      String?   // ID of admin/police who verified
+  verifiedAt      DateTime?
+  
+  // Restrictions and endorsements
+  restrictions    String?   // JSON array of restrictions ["NO_NIGHT_DRIVING", "CORRECTIVE_LENSES"]
+  endorsements    String?   // JSON array of endorsements ["MOTORCYCLE", "MANUAL_TRANSMISSION"]
+  
+  // Violation tracking
+  violationCount  Int       @default(0)
+  lastViolationAt DateTime?
+  isSuspended     Boolean   @default(false)
+  suspendedUntil  DateTime?
+  suspensionReason String?
+  
+  // Relations
+  vehicleAssignments VehicleAssignment[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([licenseNo])
+  @@index([citizenId])
+  @@index([category])
+  @@index([isActive])
+  @@index([isVerified])
+  @@index([expiryDate])
+  @@map("driving_licenses")
+}
+
+// Vehicle Assignment System - tracks who is assigned to drive which vehicle
+model VehicleAssignment {
+  id          String    @id @default(uuid())
+  vehicleId   String
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id])
+  citizenId   String
+  citizen     User      @relation("VehicleAssignments", fields: [citizenId], references: [id])
+  
+  assignedBy  String    // ID of the user who made the assignment (vehicle owner or admin)
+  assignor    User      @relation("AssignmentsMade", fields: [assignedBy], references: [id])
+  
+  // Driving License Verification
+  drivingLicenseId String?  // Required valid driving license
+  drivingLicense   DrivingLicense? @relation(fields: [drivingLicenseId], references: [id])
+  
+  assignedAt  DateTime  @default(now())
+  validFrom   DateTime  @default(now())
+  validUntil  DateTime? // Optional expiry date for the assignment
+  isActive    Boolean   @default(true)
+  notes       String?   // Optional notes about the assignment
+  
+  // Assignment approval (for companies/organizations)
+  requiresApproval Boolean  @default(false)
+  isApproved      Boolean  @default(true)
+  approvedBy      String?
+  approvedAt      DateTime?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([vehicleId])
+  @@index([citizenId])
+  @@index([isActive])
+  @@index([validFrom, validUntil])
+  @@map("vehicle_assignments")
 }

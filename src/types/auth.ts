@@ -39,6 +39,15 @@ export interface AuthResponse {
   refreshToken: string;
 }
 
+// Authenticated request interface with user details
+export interface AuthenticatedRequest extends Request {
+  user?: {
+    userId: string;
+    email: string;
+    role: UserRole;
+  };
+}
+
 // Token refresh interface
 export interface RefreshTokenData {
   refreshToken: string;
