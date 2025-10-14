@@ -427,7 +427,7 @@ export class AdminController {
       }
 
       // Update user status
-      await StatusUtils.blockUser(userId, blocked);
+      await StatusUtils.blockUser(userId, blocked, reason, req.user?.id);
 
       res.status(200).json({
         success: true,
@@ -1306,6 +1306,7 @@ export class AdminController {
           isBlocked: true,
           blockedAt: true,
           blockedBy: true,
+          blockReason: true,
           createdAt: true,
         },
         orderBy: {

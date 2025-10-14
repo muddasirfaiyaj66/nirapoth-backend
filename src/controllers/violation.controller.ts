@@ -506,6 +506,124 @@ export class ViolationController {
   }
 
   /**
+   * Update rule (including toggle active status)
+   */
+  static async updateRule(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { ruleId } = req.params;
+      const updateRuleSchema = z.object({
+        title: z.string().min(1, "Rule title is required").optional(),
+        description: z
+          .string()
+          .min(1, "Rule description is required")
+          .optional(),
+        penalty: z.number().min(0, "Penalty must be positive").optional(),
+        isActive: z.boolean().optional(),
+      });
+
+      const validatedData = updateRuleSchema.parse(req.body);
+
+      // Check if rule exists
+      const existingRule = await prisma.rule.findUnique({
+        where: { id: ruleId },
+      });
+
+      if (!existingRule) {
+        res.status(404).json({
+          success: false,
+          message: "Rule not found",
+          statusCode: 404,
+        });
+        return;
+      }
+
+      // Update rule
+      const updatedRule = await prisma.rule.update({
+        where: { id: ruleId },
+        data: validatedData,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Rule updated successfully",
+        data: updatedRule,
+        statusCode: 200,
+      });
+    } catch (error) {
+      console.error("Error updating rule:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          message: "Validation error",
+          errors: error.issues,
+          statusCode: 400,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: "Internal server error",
+          statusCode: 500,
+        });
+      }
+    }
+  }
+
+  /**
+   * Delete rule
+   */
+  static async deleteRule(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { ruleId } = req.params;
+
+      // Check if rule exists
+      const existingRule = await prisma.rule.findUnique({
+        where: { id: ruleId },
+      });
+
+      if (!existingRule) {
+        res.status(404).json({
+          success: false,
+          message: "Rule not found",
+          statusCode: 404,
+        });
+        return;
+      }
+
+      // Check if rule is used in any violations
+      const violationCount = await prisma.violation.count({
+        where: { ruleId: ruleId },
+      });
+
+      if (violationCount > 0) {
+        res.status(400).json({
+          success: false,
+          message: `Cannot delete rule. It is being used in ${violationCount} violation(s). Consider deactivating it instead.`,
+          statusCode: 400,
+        });
+        return;
+      }
+
+      // Delete rule
+      await prisma.rule.delete({
+        where: { id: ruleId },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Rule deleted successfully",
+        statusCode: 200,
+      });
+    } catch (error) {
+      console.error("Error deleting rule:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+        statusCode: 500,
+      });
+    }
+  }
+
+  /**
    * Get violation statistics
    */
   static async getViolationStats(

@@ -270,6 +270,7 @@ model User {
   blockedBy             String?
   unblockedBy           String?
   verifiedBy            String?
+  blockReason           String?
   
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
