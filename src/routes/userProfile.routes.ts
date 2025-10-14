@@ -15,6 +15,13 @@ router.use(authenticateToken);
 router.get("/", UserProfileController.getProfile);
 
 /**
+ * @route GET /api/profile/me
+ * @desc Get current user profile (alias for /)
+ * @access Private
+ */
+router.get("/me", UserProfileController.getProfile);
+
+/**
  * @route PUT /api/profile
  * @desc Update user profile
  * @access Private

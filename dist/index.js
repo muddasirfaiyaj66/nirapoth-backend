@@ -16,7 +16,13 @@ import drivingLicenseRoutes from "./routes/drivingLicense.routes";
 import vehicleAssignmentRoutes from "./routes/vehicleAssignment.routes";
 import userProfileRoutes from "./routes/userProfile.routes";
 import policeManagementRoutes from "./routes/policeManagement.routes";
-const app = express();
+import { vehicleRoutes } from "./routes/vehicle.routes";
+import { violationRoutes } from "./routes/violation.routes";
+import { complaintRoutes } from "./routes/complaint.routes";
+import { paymentRoutes } from "./routes/payment.routes";
+import { aiIntegrationRoutes } from "./routes/aiIntegration.routes";
+import { citizenRoutes } from "./routes/citizen.routes";
+export const app = express();
 const prisma = new PrismaClient();
 const PORT = config.port;
 // Trust proxy for accurate IP addresses (important for rate limiting)
@@ -57,6 +63,12 @@ app.use("/api/driving-license", drivingLicenseRoutes);
 app.use("/api/vehicle-assignment", vehicleAssignmentRoutes);
 app.use("/api/user-profile", userProfileRoutes);
 app.use("/api/police", policeManagementRoutes);
+app.use("/api/vehicles", vehicleRoutes);
+app.use("/api/violations", violationRoutes);
+app.use("/api/complaints", complaintRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/ai", aiIntegrationRoutes);
+app.use("/api/citizen", citizenRoutes);
 // Test route to check if server is running (legacy)
 app.get("/", (req, res) => {
     res.json({

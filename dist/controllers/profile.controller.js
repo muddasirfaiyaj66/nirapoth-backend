@@ -4,6 +4,335 @@ import { hashPassword, comparePassword } from "../utils/password";
 import { updateProfileSchema, changePasswordSchema } from "../utils/validation";
 const prisma = new PrismaClient();
 /**
+ * Get user profile controller
+ * @param req - Express request object (with user attached by auth middleware)
+ * @param res - Express response object
+ */
+export const getUserProfile = async (req, res) => {
+    try {
+        const userId = req.userId;
+        if (!userId) {
+            res.status(401).json({
+                success: false,
+                message: "User not authenticated",
+                statusCode: 401,
+            });
+            return;
+        }
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                citizenGem: true,
+                drivingLicenses: {
+                    where: { isActive: true },
+                    orderBy: { createdAt: "desc" },
+                },
+                vehicleAssignments: {
+                    where: { isActive: true },
+                    include: {
+                        vehicle: {
+                            select: {
+                                plateNo: true,
+                                type: true,
+                                brand: true,
+                                model: true,
+                            },
+                        },
+                    },
+                },
+                vehiclesOwned: {
+                    where: { isActive: true },
+                    select: {
+                        id: true,
+                        plateNo: true,
+                        type: true,
+                        brand: true,
+                        model: true,
+                    },
+                },
+                station: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                    },
+                },
+            },
+        });
+        if (!user) {
+            res.status(404).json({
+                success: false,
+                message: "User not found",
+                statusCode: 404,
+            });
+            return;
+        }
+        // Remove password from response
+        const { password, ...userProfile } = user;
+        const response = {
+            success: true,
+            message: "Profile retrieved successfully",
+            data: userProfile,
+            statusCode: 200,
+        };
+        res.status(200).json(response);
+    }
+    catch (error) {
+        console.error("Get user profile error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            statusCode: 500,
+        });
+    }
+};
+/**
+ * Get user statistics controller
+ * @param req - Express request object (with user attached by auth middleware)
+ * @param res - Express response object
+ */
+export const getUserStatistics = async (req, res) => {
+    try {
+        const userId = req.userId;
+        if (!userId) {
+            res.status(401).json({
+                success: false,
+                message: "User not authenticated",
+                statusCode: 401,
+            });
+            return;
+        }
+        const [totalVehicles, activeAssignments, totalViolations, citizenGems, activeLicenses,] = await Promise.all([
+            prisma.vehicle.count({
+                where: { ownerId: userId, isActive: true },
+            }),
+            prisma.vehicleAssignment.count({
+                where: {
+                    citizenId: userId,
+                    isActive: true,
+                    OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
+                },
+            }),
+            prisma.violation.count({
+                where: {
+                    vehicle: {
+                        OR: [{ ownerId: userId }, { driverId: userId }],
+                    },
+                },
+            }),
+            prisma.citizenGem.findUnique({
+                where: { citizenId: userId },
+            }),
+            prisma.drivingLicense.count({
+                where: {
+                    citizenId: userId,
+                    isActive: true,
+                    expiryDate: { gt: new Date() },
+                },
+            }),
+        ]);
+        const response = {
+            success: true,
+            message: "User statistics retrieved successfully",
+            data: {
+                totalVehicles,
+                activeAssignments,
+                totalViolations,
+                gems: citizenGems?.amount || 0,
+                isRestricted: citizenGems?.isRestricted || false,
+                activeLicenses,
+            },
+            statusCode: 200,
+        };
+        res.status(200).json(response);
+    }
+    catch (error) {
+        console.error("Get user statistics error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            statusCode: 500,
+        });
+    }
+};
+/**
+ * Validate profile completeness controller
+ * @param req - Express request object (with user attached by auth middleware)
+ * @param res - Express response object
+ */
+export const validateProfile = async (req, res) => {
+    try {
+        const userId = req.userId;
+        if (!userId) {
+            res.status(401).json({
+                success: false,
+                message: "User not authenticated",
+                statusCode: 401,
+            });
+            return;
+        }
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                firstName: true,
+                lastName: true,
+                phone: true,
+                email: true,
+                presentAddress: true,
+                presentCity: true,
+                presentDistrict: true,
+                role: true,
+                badgeNo: true,
+                joiningDate: true,
+                rank: true,
+                designation: true,
+                dateOfBirth: true,
+            },
+        });
+        if (!user) {
+            res.status(404).json({
+                success: false,
+                message: "User not found",
+                statusCode: 404,
+            });
+            return;
+        }
+        const requiredFields = [
+            "firstName",
+            "lastName",
+            "phone",
+            "email",
+            "presentAddress",
+            "presentCity",
+            "presentDistrict",
+        ];
+        const roleSpecificFields = {
+            POLICE_OFFICER: ["badgeNo", "joiningDate", "rank", "designation"],
+            FIRE_SERVICE: ["badgeNo", "joiningDate", "designation"],
+            CITIZEN: ["dateOfBirth"],
+        };
+        const allRequiredFields = [
+            ...requiredFields,
+            ...(roleSpecificFields[user.role] || []),
+        ];
+        const missingFields = allRequiredFields.filter((field) => !user[field]);
+        const completionPercentage = Math.round(((allRequiredFields.length - missingFields.length) /
+            allRequiredFields.length) *
+            100);
+        const response = {
+            success: true,
+            message: "Profile validation completed",
+            data: {
+                isComplete: missingFields.length === 0,
+                missingFields,
+                completionPercentage,
+            },
+            statusCode: 200,
+        };
+        res.status(200).json(response);
+    }
+    catch (error) {
+        console.error("Profile validation error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            statusCode: 500,
+        });
+    }
+};
+/**
+ * Get user's driving licenses controller
+ * @param req - Express request object (with user attached by auth middleware)
+ * @param res - Express response object
+ */
+export const getUserDrivingLicenses = async (req, res) => {
+    try {
+        const userId = req.userId;
+        if (!userId) {
+            res.status(401).json({
+                success: false,
+                message: "User not authenticated",
+                statusCode: 401,
+            });
+            return;
+        }
+        const licenses = await prisma.drivingLicense.findMany({
+            where: {
+                citizenId: userId,
+                isActive: true,
+            },
+            orderBy: { createdAt: "desc" },
+        });
+        const response = {
+            success: true,
+            message: "Driving licenses retrieved successfully",
+            data: licenses,
+            statusCode: 200,
+        };
+        res.status(200).json(response);
+    }
+    catch (error) {
+        console.error("Get driving licenses error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            statusCode: 500,
+        });
+    }
+};
+/**
+ * Add driving license controller
+ * @param req - Express request object (with user attached by auth middleware)
+ * @param res - Express response object
+ */
+export const addDrivingLicense = async (req, res) => {
+    try {
+        const userId = req.userId;
+        if (!userId) {
+            res.status(401).json({
+                success: false,
+                message: "User not authenticated",
+                statusCode: 401,
+            });
+            return;
+        }
+        const licenseData = req.body;
+        // Check if license number already exists
+        const existingLicense = await prisma.drivingLicense.findUnique({
+            where: { licenseNo: licenseData.licenseNo },
+        });
+        if (existingLicense) {
+            res.status(409).json({
+                success: false,
+                message: "Driving license number already exists",
+                statusCode: 409,
+            });
+            return;
+        }
+        const license = await prisma.drivingLicense.create({
+            data: {
+                ...licenseData,
+                citizenId: userId,
+            },
+        });
+        const response = {
+            success: true,
+            message: "Driving license added successfully",
+            data: license,
+            statusCode: 201,
+        };
+        res.status(201).json(response);
+    }
+    catch (error) {
+        console.error("Add driving license error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            statusCode: 500,
+        });
+    }
+};
+/**
  * Update user profile controller
  * @param req - Express request object (with user attached by auth middleware)
  * @param res - Express response object
@@ -57,27 +386,50 @@ export const updateProfile = async (req, res) => {
                 ...validatedData,
                 updatedAt: new Date(),
             },
-            select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-                role: true,
-                designation: true,
-                stationId: true,
-                nidNo: true,
-                birthCertificateNo: true,
-                profileImage: true,
-                isEmailVerified: true,
-                createdAt: true,
-                updatedAt: true,
+            include: {
+                citizenGem: true,
+                drivingLicenses: {
+                    where: { isActive: true },
+                    orderBy: { createdAt: "desc" },
+                },
+                vehicleAssignments: {
+                    where: { isActive: true },
+                    include: {
+                        vehicle: {
+                            select: {
+                                plateNo: true,
+                                type: true,
+                                brand: true,
+                                model: true,
+                            },
+                        },
+                    },
+                },
+                vehiclesOwned: {
+                    where: { isActive: true },
+                    select: {
+                        id: true,
+                        plateNo: true,
+                        type: true,
+                        brand: true,
+                        model: true,
+                    },
+                },
+                station: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                    },
+                },
             },
         });
+        // Remove password from response
+        const { password, ...userProfile } = updatedUser;
         const response = {
             success: true,
             message: "Profile updated successfully",
-            data: { user: updatedUser },
+            data: userProfile,
             statusCode: 200,
         };
         res.status(200).json(response);

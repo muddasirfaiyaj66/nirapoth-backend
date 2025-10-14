@@ -146,7 +146,9 @@ export class DrivingLicenseService {
             TRUCK: ["HEAVY_VEHICLE", "GOODS_VEHICLE"],
             BUS: ["HEAVY_VEHICLE", "PSV"],
         };
-        const requiredCategories = categoryMapping[vehicleType] || ["LIGHT_VEHICLE"];
+        const requiredCategories = categoryMapping[vehicleType] || [
+            "LIGHT_VEHICLE",
+        ];
         const validLicense = await prisma.drivingLicense.findFirst({
             where: {
                 citizenId,

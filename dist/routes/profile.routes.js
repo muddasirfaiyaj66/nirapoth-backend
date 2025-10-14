@@ -1,7 +1,37 @@
 import { Router } from "express";
-import { updateProfile, changePassword, uploadProfileImage, } from "../controllers/profile.controller";
+import { getUserProfile, updateProfile, changePassword, uploadProfileImage, getUserStatistics, validateProfile, getUserDrivingLicenses, addDrivingLicense, } from "../controllers/profile.controller";
 import { authenticateToken } from "../middlewares/auth.middleware";
 const router = Router();
+/**
+ * @route   GET /api/profile/me
+ * @desc    Get current user profile
+ * @access  Private
+ */
+router.get("/me", authenticateToken, getUserProfile);
+/**
+ * @route   GET /api/profile/statistics
+ * @desc    Get user statistics for dashboard
+ * @access  Private
+ */
+router.get("/statistics", authenticateToken, getUserStatistics);
+/**
+ * @route   GET /api/profile/validate
+ * @desc    Validate profile completeness
+ * @access  Private
+ */
+router.get("/validate", authenticateToken, validateProfile);
+/**
+ * @route   GET /api/profile/driving-licenses
+ * @desc    Get user's driving licenses
+ * @access  Private
+ */
+router.get("/driving-licenses", authenticateToken, getUserDrivingLicenses);
+/**
+ * @route   POST /api/profile/driving-licenses
+ * @desc    Add driving license to user profile
+ * @access  Private
+ */
+router.post("/driving-licenses", authenticateToken, addDrivingLicense);
 /**
  * @route   PUT /api/profile/update
  * @desc    Update user profile

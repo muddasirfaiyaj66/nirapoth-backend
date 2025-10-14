@@ -23,6 +23,7 @@ enum UserRole {
 enum ComplaintType {
   TRAFFIC
   INFRASTRUCTURE
+  TRAFFIC_VIOLATION
 }
 
 enum CameraStatus {
@@ -262,6 +263,13 @@ model User {
   // Status fields
   isDeleted             Boolean         @default(false)
   isBlocked             Boolean         @default(false)
+  isActive              Boolean         @default(true)
+  blockedAt             DateTime?
+  unblockedAt           DateTime?
+  verifiedAt            DateTime?
+  blockedBy             String?
+  unblockedBy           String?
+  verifiedBy            String?
   
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
@@ -502,13 +510,25 @@ model Payment {
 
 model Incident {
   id           String    @id @default(uuid())
+  externalId   String?   @unique // External ID for AI service integration
+  type         String    // ACCIDENT, FIRE, TRAFFIC_VIOLATION, etc.
   title        String
   description  String?
   priority     String?   // HIGH, MEDIUM, LOW
+  severity     String?   // LOW, MEDIUM, HIGH, CRITICAL
+  status       String    @default("REPORTED") // REPORTED, IN_PROGRESS, RESOLVED, CLOSED
   
-  // Normalized location
+  // Location data - can be either normalized or direct
   locationId   String?
   location     Location? @relation(fields: [locationId], references: [id])
+  
+  // Direct location data for AI integration
+  latitude     Float?
+  longitude    Float?
+  address      String?
+  
+  // Metadata for AI integration
+  metadata     Json?     // Store AI confidence, vehicles involved, etc.
   
   reportedById String?
   reportedBy   User?     @relation(fields: [reportedById], references: [id])
@@ -517,12 +537,18 @@ model Incident {
   handlingStationId String?
   handlingStation   PoliceStation? @relation(fields: [handlingStationId], references: [id])
   
+  reportedAt   DateTime  @default(now())
   resolvedAt   DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  @@index([type])
+  @@index([status])
   @@index([priority])
+  @@index([severity])
+  @@index([reportedAt])
   @@index([createdAt])
+  @@index([externalId])
   @@map("incidents")
 }
 

@@ -1041,4 +1041,237 @@ export class AdminController {
             });
         }
     }
+    /**
+     * Get pending user verifications
+     */
+    static async getPendingVerifications(req, res) {
+        try {
+            const { page = 1, limit = 10, status = "PENDING" } = req.query;
+            const users = await prisma.user.findMany({
+                where: {
+                    isEmailVerified: status === "PENDING" ? false : true,
+                    isDeleted: false,
+                },
+                select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    phone: true,
+                    role: true,
+                    nidNo: true,
+                    birthCertificateNo: true,
+                    isEmailVerified: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+                orderBy: {
+                    createdAt: "desc",
+                },
+                skip: (Number(page) - 1) * Number(limit),
+                take: Number(limit),
+            });
+            const total = await prisma.user.count({
+                where: {
+                    isEmailVerified: status === "PENDING" ? false : true,
+                    isDeleted: false,
+                },
+            });
+            res.status(200).json({
+                success: true,
+                data: {
+                    users,
+                    pagination: {
+                        page: Number(page),
+                        limit: Number(limit),
+                        total,
+                        pages: Math.ceil(total / Number(limit)),
+                    },
+                },
+                statusCode: 200,
+            });
+        }
+        catch (error) {
+            console.error("Error fetching pending verifications:", error);
+            res.status(500).json({
+                success: false,
+                message: "Internal server error",
+                statusCode: 500,
+            });
+        }
+    }
+    /**
+     * Get role management data
+     */
+    static async getRoleManagement(req, res) {
+        try {
+            const roleStats = await prisma.user.groupBy({
+                by: ["role"],
+                _count: {
+                    role: true,
+                },
+                where: {
+                    isDeleted: false,
+                },
+            });
+            const roles = roleStats.map((stat) => ({
+                role: stat.role,
+                count: stat._count.role,
+                description: getRoleDescription(stat.role),
+                permissions: getRolePermissions(stat.role),
+            }));
+            res.status(200).json({
+                success: true,
+                data: roles,
+                statusCode: 200,
+            });
+        }
+        catch (error) {
+            console.error("Error fetching role management:", error);
+            res.status(500).json({
+                success: false,
+                message: "Internal server error",
+                statusCode: 500,
+            });
+        }
+    }
+    /**
+     * Get blocked users
+     */
+    static async getBlockedUsers(req, res) {
+        try {
+            const { page = 1, limit = 10 } = req.query;
+            const users = await prisma.user.findMany({
+                where: {
+                    isBlocked: true,
+                    isDeleted: false,
+                },
+                select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    phone: true,
+                    role: true,
+                    isBlocked: true,
+                    blockedAt: true,
+                    blockedBy: true,
+                    createdAt: true,
+                },
+                orderBy: {
+                    blockedAt: "desc",
+                },
+                skip: (Number(page) - 1) * Number(limit),
+                take: Number(limit),
+            });
+            const total = await prisma.user.count({
+                where: {
+                    isBlocked: true,
+                    isDeleted: false,
+                },
+            });
+            res.status(200).json({
+                success: true,
+                data: {
+                    users,
+                    pagination: {
+                        page: Number(page),
+                        limit: Number(limit),
+                        total,
+                        pages: Math.ceil(total / Number(limit)),
+                    },
+                },
+                statusCode: 200,
+            });
+        }
+        catch (error) {
+            console.error("Error fetching blocked users:", error);
+            res.status(500).json({
+                success: false,
+                message: "Internal server error",
+                statusCode: 500,
+            });
+        }
+    }
+    /**
+     * Verify user
+     */
+    static async verifyUser(req, res) {
+        try {
+            const { userId, verified } = req.body;
+            const user = await prisma.user.update({
+                where: { id: userId },
+                data: {
+                    isEmailVerified: verified,
+                    verifiedAt: verified ? new Date() : null,
+                    verifiedBy: verified ? req.user?.id : undefined,
+                },
+            });
+            res.status(200).json({
+                success: true,
+                message: `User ${verified ? "verified" : "unverified"} successfully`,
+                data: user,
+                statusCode: 200,
+            });
+        }
+        catch (error) {
+            console.error("Error verifying user:", error);
+            res.status(500).json({
+                success: false,
+                message: "Internal server error",
+                statusCode: 500,
+            });
+        }
+    }
+    /**
+     * Unblock user
+     */
+    static async unblockUser(req, res) {
+        try {
+            const { userId } = req.body;
+            const user = await prisma.user.update({
+                where: { id: userId },
+                data: {
+                    isBlocked: false,
+                    unblockedAt: new Date(),
+                    unblockedBy: req.user?.id,
+                },
+            });
+            res.status(200).json({
+                success: true,
+                message: "User unblocked successfully",
+                data: user,
+                statusCode: 200,
+            });
+        }
+        catch (error) {
+            console.error("Error unblocking user:", error);
+            res.status(500).json({
+                success: false,
+                message: "Internal server error",
+                statusCode: 500,
+            });
+        }
+    }
+}
+// Helper functions
+function getRoleDescription(role) {
+    const descriptions = {
+        SUPER_ADMIN: "Full system access and control",
+        ADMIN: "Manage users and system settings",
+        POLICE: "Handle violations and incidents",
+        FIRE_SERVICE: "Handle fire incidents and emergencies",
+        CITIZEN: "Basic citizen access and reporting",
+    };
+    return descriptions[role] || "Unknown role";
+}
+function getRolePermissions(role) {
+    const permissions = {
+        SUPER_ADMIN: ["All Permissions"],
+        ADMIN: ["User Management", "System Settings", "Analytics"],
+        POLICE: ["Violation Management", "Incident Handling", "Camera Access"],
+        FIRE_SERVICE: ["Fire Incidents", "Emergency Response", "Safety Reports"],
+        CITIZEN: ["Profile Management", "Vehicle Registration", "Complaint Filing"],
+    };
+    return permissions[role] || ["Basic Access"];
 }

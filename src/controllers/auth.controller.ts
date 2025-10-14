@@ -159,6 +159,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         passwordResetExpires: true,
         isDeleted: true,
         isBlocked: true,
+        isActive: true,
+        blockedAt: true,
+        unblockedAt: true,
+        verifiedAt: true,
+        blockedBy: true,
+        unblockedBy: true,
+        verifiedBy: true,
         createdAt: true,
         updatedAt: true,
         stationId: true,
@@ -257,14 +264,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
       maxAge: 15 * 60 * 1000, // 15 minutes
     });
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -377,6 +384,13 @@ export const refreshToken = async (
         passwordResetExpires: true,
         isDeleted: true,
         isBlocked: true,
+        isActive: true,
+        blockedAt: true,
+        unblockedAt: true,
+        verifiedAt: true,
+        blockedBy: true,
+        unblockedBy: true,
+        verifiedBy: true,
         createdAt: true,
         updatedAt: true,
         // Additional profile fields
@@ -426,14 +440,14 @@ export const refreshToken = async (
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
       maxAge: 15 * 60 * 1000, // 15 minutes
     });
 
     res.cookie("refreshToken", newRefreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 

@@ -15,9 +15,14 @@ router.get("/overview", AdminController.getAdminOverview);
 // User management routes
 router.get("/users", AdminController.getAllUsers);
 router.get("/users/stats", AdminController.getUserStats);
+router.get("/users/verification", AdminController.getPendingVerifications);
+router.get("/users/roles", AdminController.getRoleManagement);
+router.get("/users/blocked", AdminController.getBlockedUsers);
 router.post("/users/create", AdminController.createUser);
 router.post("/users/update-role", AdminController.updateUserRole);
+router.post("/users/verify", AdminController.verifyUser);
 router.post("/users/block", AdminController.blockUser);
+router.post("/users/unblock", AdminController.unblockUser);
 router.post("/users/delete", AdminController.softDeleteUser);
 
 // Violation management routes

@@ -92,6 +92,49 @@ export const updateProfileSchema = z.object({
         .min(10, "Phone number must be at least 10 characters")
         .max(20, "Phone number must not exceed 20 characters")
         .optional(),
+    dateOfBirth: z
+        .string()
+        .optional()
+        .transform((str) => (str ? new Date(str) : undefined)),
+    gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
+    bloodGroup: z.string().optional(),
+    // Contact Information
+    alternatePhone: z
+        .string()
+        .regex(/^[0-9+\-\s()]+$/, "Please provide a valid phone number")
+        .min(10, "Phone number must be at least 10 characters")
+        .max(20, "Phone number must not exceed 20 characters")
+        .optional(),
+    emergencyContact: z.string().optional(),
+    emergencyContactPhone: z
+        .string()
+        .regex(/^[0-9+\-\s()]+$/, "Please provide a valid phone number")
+        .min(10, "Phone number must be at least 10 characters")
+        .max(20, "Phone number must not exceed 20 characters")
+        .optional(),
+    // Present Address
+    presentAddress: z.string().optional(),
+    presentCity: z.string().optional(),
+    presentDistrict: z.string().optional(),
+    presentDivision: z.string().optional(),
+    presentPostalCode: z.string().optional(),
+    // Permanent Address
+    permanentAddress: z.string().optional(),
+    permanentCity: z.string().optional(),
+    permanentDistrict: z.string().optional(),
+    permanentDivision: z.string().optional(),
+    permanentPostalCode: z.string().optional(),
+    // Professional Information (for police/fire service)
+    designation: z.string().optional(),
+    badgeNo: z.string().optional(),
+    joiningDate: z
+        .string()
+        .optional()
+        .transform((str) => (str ? new Date(str) : undefined)),
+    rank: z.string().optional(),
+    specialization: z.string().optional(),
+    // Additional Info
+    bio: z.string().optional(),
     nidNo: z
         .string()
         .regex(/^\d{10}$|^\d{17}$/, "NID must be either 10 or 17 digits")
