@@ -31,8 +31,10 @@ import { vehicleRoutes } from "./routes/vehicle.routes";
 import { violationRoutes } from "./routes/violation.routes";
 import { complaintRoutes } from "./routes/complaint.routes";
 import { paymentRoutes } from "./routes/payment.routes";
+import { fineRoutes } from "./routes/fine.routes";
 import { aiIntegrationRoutes } from "./routes/aiIntegration.routes";
 import { citizenRoutes } from "./routes/citizen.routes";
+import cameraRoutes from "./routes/camera.routes";
 
 export const app = express();
 const prisma = new PrismaClient();
@@ -88,8 +90,10 @@ app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/violations", violationRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/fines", fineRoutes);
 app.use("/api/ai", aiIntegrationRoutes);
 app.use("/api/citizen", citizenRoutes);
+app.use("/api/cameras", cameraRoutes);
 
 // Test route to check if server is running (legacy)
 app.get("/", (req: Request, res: Response) => {

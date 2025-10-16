@@ -4,6 +4,7 @@ import vehicleAssignmentRoutes from "./vehicleAssignment.routes";
 import userProfileRoutes from "./userProfile.routes";
 import policeManagementRoutes from "./policeManagement.routes";
 import { vehicleRoutes } from "./vehicle.routes";
+import cameraRoutes from "./camera.routes";
 
 const router = Router();
 
@@ -13,5 +14,6 @@ router.use("/vehicle-assignment", vehicleAssignmentRoutes);
 router.use("/vehicles", vehicleRoutes);
 router.use("/profile", userProfileRoutes);
 router.use("/police", policeManagementRoutes);
+router.use("/cameras", cameraRoutes);
 
 export default router;

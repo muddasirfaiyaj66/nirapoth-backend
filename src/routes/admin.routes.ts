@@ -30,7 +30,10 @@ router.get("/violations", AdminController.getAllViolations);
 router.post("/violations/update-status", AdminController.updateViolationStatus);
 
 // Analytics routes
+router.get("/analytics/test", AdminController.testAnalytics);
 router.get("/analytics/system", AdminController.getSystemAnalytics);
+router.get("/analytics/revenue", AdminController.getRevenueAnalytics);
+router.get("/analytics/traffic", AdminController.getTrafficAnalytics);
 
 // Citizen gem management routes
 router.post("/citizens/gems/manage", AdminController.manageCitizenGems);
@@ -39,5 +42,9 @@ router.get("/citizens/:citizenId/gems", AdminController.getCitizenGems);
 
 // System maintenance routes
 router.post("/system/enforce-constraints", AdminController.enforceConstraints);
+
+// System configuration routes (Super Admin only)
+router.get("/system/config", AdminController.getSystemConfig);
+router.put("/system/config", AdminController.updateSystemConfig);
 
 export default router;
