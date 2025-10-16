@@ -1,5 +1,3 @@
-
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -82,12 +80,12 @@ enum LocationType {
 }
 
 enum PoliceHierarchyLevel {
-  HEADQUARTERS      // National/Central level
-  RANGE            // Regional level
-  DISTRICT         // District level  
-  CIRCLE           // Circle level
-  STATION          // Station level (actual police stations)
-  OUTPOST          // Sub-station/outpost level
+  HEADQUARTERS // National/Central level
+  RANGE // Regional level
+  DISTRICT // District level  
+  CIRCLE // Circle level
+  STATION // Station level (actual police stations)
+  OUTPOST // Sub-station/outpost level
 }
 
 enum StationStatus {
@@ -98,12 +96,95 @@ enum StationStatus {
 }
 
 enum LicenseCategory {
-  LIGHT_VEHICLE           // Light vehicle (cars, small vans)
-  MOTORCYCLE             // Motorcycle only
+  LIGHT_VEHICLE // Light vehicle (cars, small vans)
+  MOTORCYCLE // Motorcycle only
   LIGHT_VEHICLE_MOTORCYCLE // Combined light vehicle + motorcycle
-  HEAVY_VEHICLE          // Heavy vehicles (trucks, buses)
-  PSV                    // Public Service Vehicle
-  GOODS_VEHICLE          // Commercial goods vehicle
+  HEAVY_VEHICLE // Heavy vehicles (trucks, buses)
+  PSV // Public Service Vehicle
+  GOODS_VEHICLE // Commercial goods vehicle
+}
+
+enum CitizenReportStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AppealStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationType {
+  REPORT_SUBMITTED
+  REPORT_APPROVED
+  REPORT_REJECTED
+  APPEAL_SUBMITTED
+  APPEAL_APPROVED
+  APPEAL_REJECTED
+  REWARD_EARNED
+  PENALTY_APPLIED
+  DEBT_CREATED
+  PAYMENT_RECEIVED
+  SYSTEM
+  INFO
+  WARNING
+  SUCCESS
+  ERROR
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ViolationType {
+  OVER_SPEEDING
+  WRONG_SIDE_DRIVING
+  SIGNAL_BREAKING
+  NO_HELMET
+  ILLEGAL_PARKING
+  DRIVING_WITHOUT_LICENSE
+  OVERLOADING
+  PHONE_USAGE_WHILE_DRIVING
+  DRUNK_DRIVING
+  OTHER
+}
+
+enum TransactionType {
+  REWARD
+  PENALTY
+  BONUS
+  DEDUCTION
+}
+
+enum TransactionSource {
+  CITIZEN_REPORT
+  VIOLATION
+  FINE_PAYMENT
+  SYSTEM
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum WithdrawalMethod {
+  BANK_TRANSFER
+  MOBILE_BANKING
+  CASH
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
 }
 
 //
@@ -112,18 +193,18 @@ enum LicenseCategory {
 
 // Location management - normalized to eliminate redundant lat/lng data
 model Location {
-  id          String      @id @default(uuid())
-  latitude    Float
-  longitude   Float
-  address     String?
-  city        String?
-  district    String?
-  division    String?
-  country     String      @default("Bangladesh")
-  postalCode  String?
-  type        LocationType
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id         String       @id @default(uuid())
+  latitude   Float
+  longitude  Float
+  address    String?
+  city       String?
+  district   String?
+  division   String?
+  country    String       @default("Bangladesh")
+  postalCode String?
+  type       LocationType
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
 
   // Relations
   policeOrganizations PoliceOrganization[]
@@ -133,6 +214,7 @@ model Location {
   violations          Violation[]
   incidents           Incident[]
   complaints          Complaint[]
+  citizenReports      CitizenReport[]
 
   @@index([latitude, longitude])
   @@index([type])
@@ -141,13 +223,13 @@ model Location {
 
 // Contact information - normalized to avoid repetition
 model ContactInfo {
-  id          String   @id @default(uuid())
-  phone       String?
-  email       String?
-  website     String?
+  id             String   @id @default(uuid())
+  phone          String?
+  email          String?
+  website        String?
   emergencyPhone String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relations
   policeOrganizations PoliceOrganization[]
@@ -163,33 +245,33 @@ model ContactInfo {
 
 // Police organizational hierarchy - normalized structure
 model PoliceOrganization {
-  id            String              @id @default(uuid())
-  name          String              // e.g., "Bangladesh Police", "Dhaka Metropolitan Police"
-  code          String              @unique // e.g., "BP", "DMP", "RMP"
-  level         PoliceHierarchyLevel
-  description   String?
-  
+  id          String               @id @default(uuid())
+  name        String // e.g., "Bangladesh Police", "Dhaka Metropolitan Police"
+  code        String               @unique // e.g., "BP", "DMP", "RMP"
+  level       PoliceHierarchyLevel
+  description String?
+
   // Self-referencing hierarchy
-  parentId      String?
-  parent        PoliceOrganization? @relation("Hierarchy", fields: [parentId], references: [id])
-  children      PoliceOrganization[] @relation("Hierarchy")
-  
+  parentId String?
+  parent   PoliceOrganization?  @relation("Hierarchy", fields: [parentId], references: [id])
+  children PoliceOrganization[] @relation("Hierarchy")
+
   // Relations to actual stations
-  stations      PoliceStation[]
-  
+  stations PoliceStation[]
+
   // Normalized location and contact
-  locationId    String?
-  location      Location?           @relation(fields: [locationId], references: [id])
-  contactId     String?
-  contact       ContactInfo?        @relation(fields: [contactId], references: [id])
-  
+  locationId String?
+  location   Location?    @relation(fields: [locationId], references: [id])
+  contactId  String?
+  contact    ContactInfo? @relation(fields: [contactId], references: [id])
+
   // Administrative details
-  headOfficerId String?             // Officer in charge
-  headOfficer   User?               @relation("OrganizationHead", fields: [headOfficerId], references: [id])
-  
-  isActive      Boolean             @default(true)
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  headOfficerId String? // Officer in charge
+  headOfficer   User?   @relation("OrganizationHead", fields: [headOfficerId], references: [id])
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([level])
   @@index([parentId])
@@ -202,96 +284,104 @@ model PoliceOrganization {
 // CORE MODELS
 //
 model User {
-  id                    String          @id @default(uuid())
-  firstName             String
-  lastName              String
-  phone                 String
-  email                 String          @unique
-  password              String
-  role                  UserRole        @default(CITIZEN)
-  designation           String?         // Job title/position (e.g., "Inspector", "Sub-Inspector", "Constable", "Chief", etc.)
-  nidNo                 String?         @unique
-  birthCertificateNo    String?         @unique
-  profileImage          String?
-  
+  id                 String   @id @default(uuid())
+  firstName          String
+  lastName           String
+  phone              String
+  email              String   @unique
+  password           String
+  role               UserRole @default(CITIZEN)
+  designation        String? // Job title/position (e.g., "Inspector", "Sub-Inspector", "Constable", "Chief", etc.)
+  nidNo              String?  @unique
+  birthCertificateNo String?  @unique
+  profileImage       String?
+
   // Personal Information
-  dateOfBirth           DateTime?
-  gender                String?         // "MALE", "FEMALE", "OTHER"
-  bloodGroup            String?         // "A+", "B+", "O+", etc.
-  
+  dateOfBirth DateTime?
+  gender      String? // "MALE", "FEMALE", "OTHER"
+  bloodGroup  String? // "A+", "B+", "O+", etc.
+
   // Contact Information
   alternatePhone        String?
   emergencyContact      String?
   emergencyContactPhone String?
-  
+
   // Address Information
-  presentAddress        String?
-  presentCity           String?
-  presentDistrict       String?
-  presentDivision       String?
-  presentPostalCode     String?
-  
-  permanentAddress      String?
-  permanentCity         String?
-  permanentDistrict     String?
-  permanentDivision     String?
-  permanentPostalCode   String?
-  
+  presentAddress    String?
+  presentCity       String?
+  presentDistrict   String?
+  presentDivision   String?
+  presentPostalCode String?
+
+  permanentAddress    String?
+  permanentCity       String?
+  permanentDistrict   String?
+  permanentDivision   String?
+  permanentPostalCode String?
+
   // Driving License Information
-  drivingLicenseNo      String?         @unique
-  drivingLicenseIssueDate DateTime?
+  drivingLicenseNo         String?   @unique
+  drivingLicenseIssueDate  DateTime?
   drivingLicenseExpiryDate DateTime?
-  drivingLicenseCategory String?       // "MOTORCYCLE", "CAR", "HEAVY", "PROFESSIONAL", etc.
-  isDrivingLicenseVerified Boolean     @default(false)
-  
+  drivingLicenseCategory   String? // "MOTORCYCLE", "CAR", "HEAVY", "PROFESSIONAL", etc.
+  isDrivingLicenseVerified Boolean   @default(false)
+
   // Professional Information (for police/fire service)
-  badgeNo              String?         @unique // Police badge number
-  joiningDate          DateTime?       // Date of joining service
-  serviceLength        Int?            // Years of service
-  rank                 String?         // Police rank (Constable, ASI, SI, Inspector, etc.)
-  specialization       String?         // Area of expertise
-  
+  badgeNo        String?   @unique // Police badge number
+  joiningDate    DateTime? // Date of joining service
+  serviceLength  Int? // Years of service
+  rank           String? // Police rank (Constable, ASI, SI, Inspector, etc.)
+  specialization String? // Area of expertise
+
   // Email verification fields
-  isEmailVerified       Boolean         @default(false)
-  emailVerificationToken String?
+  isEmailVerified          Boolean   @default(false)
+  emailVerificationToken   String?
   emailVerificationExpires DateTime?
-  
+
   // Password reset fields
-  passwordResetToken    String?
-  passwordResetExpires  DateTime?
-  
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+
   // Status fields
-  isDeleted             Boolean         @default(false)
-  isBlocked             Boolean         @default(false)
-  isActive              Boolean         @default(true)
-  blockedAt             DateTime?
-  unblockedAt           DateTime?
-  verifiedAt            DateTime?
-  blockedBy             String?
-  unblockedBy           String?
-  verifiedBy            String?
-  blockReason           String?
-  
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
+  isDeleted   Boolean   @default(false)
+  isBlocked   Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  blockedAt   DateTime?
+  unblockedAt DateTime?
+  verifiedAt  DateTime?
+  blockedBy   String?
+  unblockedBy String?
+  verifiedBy  String?
+  blockReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  stationId      String?
-  station        PoliceStation?  @relation(fields: [stationId], references: [id])
-  
+  stationId String?
+  station   PoliceStation? @relation(fields: [stationId], references: [id])
+
   // Police hierarchy relations
   headsOrganizations PoliceOrganization[] @relation("OrganizationHead")
-  stationAsOC        PoliceStation[]     @relation("StationOC")
-  
-  vehiclesOwned  Vehicle[]       @relation("OwnerVehicles")
-  vehiclesDriven Vehicle[]       @relation("DriverVehicles")
-  payments       Payment[]
+  stationAsOC        PoliceStation[]      @relation("StationOC")
+
+  vehiclesOwned      Vehicle[]           @relation("OwnerVehicles")
+  vehiclesDriven     Vehicle[]           @relation("DriverVehicles")
+  payments           Payment[]
   citizenGem         CitizenGem?
   incidents          Incident[]
   complaints         Complaint[]
   vehicleAssignments VehicleAssignment[] @relation("VehicleAssignments")
   assignmentsMade    VehicleAssignment[] @relation("AssignmentsMade")
   drivingLicenses    DrivingLicense[]    @relation("DrivingLicenses")
+  citizenReports     CitizenReport[]     @relation("CitizenReports")
+  reviewedReports    CitizenReport[]     @relation("ReviewedReports")
+  appealReviewedReports CitizenReport[]  @relation("AppealReviewedReports")
+  rewardTransactions RewardTransaction[]
+  withdrawals        WithdrawalRequest[]
+  processedWithdrawals WithdrawalRequest[] @relation("ProcessedWithdrawals")
+  outstandingDebts   OutstandingDebt[]   @relation("UserDebts")
+  notifications      Notification[]      @relation("UserNotifications")
 
   @@index([email])
   @@index([nidNo])
@@ -301,38 +391,38 @@ model User {
 }
 
 model PoliceStation {
-  id              String             @id @default(uuid())
-  name            String
-  code            String             @unique  // Station code (e.g., "DMP-RAM-001", "RMP-CTG-002")
-  stationType     String?            // "THANA", "OUTPOST", "TRAFFIC", "SPECIAL"
-  status          StationStatus      @default(ACTIVE)
-  
+  id          String        @id @default(uuid())
+  name        String
+  code        String        @unique // Station code (e.g., "DMP-RAM-001", "RMP-CTG-002")
+  stationType String? // "THANA", "OUTPOST", "TRAFFIC", "SPECIAL"
+  status      StationStatus @default(ACTIVE)
+
   // Hierarchical organization relation
-  organizationId  String?
-  organization    PoliceOrganization? @relation(fields: [organizationId], references: [id])
-  
+  organizationId String?
+  organization   PoliceOrganization? @relation(fields: [organizationId], references: [id])
+
   // Normalized relations
-  locationId      String?
-  location        Location?          @relation(fields: [locationId], references: [id])
-  contactId       String?
-  contact         ContactInfo?       @relation(fields: [contactId], references: [id])
-  
+  locationId String?
+  location   Location?    @relation(fields: [locationId], references: [id])
+  contactId  String?
+  contact    ContactInfo? @relation(fields: [contactId], references: [id])
+
   // Station management
-  officerInChargeId String?          // OC (Officer in Charge)
-  officerInCharge   User?            @relation("StationOC", fields: [officerInChargeId], references: [id])
-  
+  officerInChargeId String? // OC (Officer in Charge)
+  officerInCharge   User?   @relation("StationOC", fields: [officerInChargeId], references: [id])
+
   // Capacity and resources
-  capacity        Int?               // Number of officers/staff capacity
-  currentStrength Int?               // Current number of officers
-  
+  capacity        Int? // Number of officers/staff capacity
+  currentStrength Int? // Current number of officers
+
   // Relations
-  cameras         Camera[]
-  users           User[]            // Officers assigned to this station
-  incidents       Incident[]        // Incidents handled by this station
-  complaints      Complaint[]       // Complaints filed at this station
-  
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  cameras    Camera[]
+  users      User[] // Officers assigned to this station
+  incidents  Incident[] // Incidents handled by this station
+  complaints Complaint[] // Complaints filed at this station
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([code])
   @@index([organizationId])
@@ -342,45 +432,45 @@ model PoliceStation {
 }
 
 model FireService {
-  id          String      @id @default(uuid())
-  name        String
-  code        String      @unique  // Service code (e.g., "FSCD-DHK-01")
-  
+  id   String @id @default(uuid())
+  name String
+  code String @unique // Service code (e.g., "FSCD-DHK-01")
+
   // Normalized relations
-  locationId   String?
-  location     Location?   @relation(fields: [locationId], references: [id])
-  contactId    String?
-  contact      ContactInfo? @relation(fields: [contactId], references: [id])
-  
+  locationId String?
+  location   Location?    @relation(fields: [locationId], references: [id])
+  contactId  String?
+  contact    ContactInfo? @relation(fields: [contactId], references: [id])
+
   // Relations
-  cameras      Camera[]
-  
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  cameras Camera[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([code])
   @@map("fire_services")
 }
 
 model Camera {
-  id            String         @id @default(uuid())
-  name          String?        // Camera identifier/name
-  streamUrl     String
-  installedAt   DateTime
-  status        CameraStatus   @default(ACTIVE)
-  
+  id          String       @id @default(uuid())
+  name        String? // Camera identifier/name
+  streamUrl   String
+  installedAt DateTime
+  status      CameraStatus @default(ACTIVE)
+
   // Normalized location
-  locationId    String?
-  location      Location?      @relation(fields: [locationId], references: [id])
-  
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
+
   // Relations to stations/services
   stationId     String?
   station       PoliceStation? @relation(fields: [stationId], references: [id])
   fireServiceId String?
   fireService   FireService?   @relation(fields: [fireServiceId], references: [id])
-  
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([installedAt])
@@ -388,17 +478,17 @@ model Camera {
 }
 
 model Rule {
-  id          String      @id @default(uuid())
-  code        String      @unique
-  title       String      // Short title for the rule
+  id          String  @id @default(uuid())
+  code        String  @unique
+  title       String // Short title for the rule
   description String
-  penalty     Int?        // Default penalty amount
-  isActive    Boolean     @default(true)
-  
-  violations  Violation[]
-  
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  penalty     Int? // Default penalty amount
+  isActive    Boolean @default(true)
+
+  violations Violation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([code])
   @@index([isActive])
@@ -406,32 +496,32 @@ model Rule {
 }
 
 model Vehicle {
-  id           String      @id @default(uuid())
-  type         VehicleType
-  plateNo      String      @unique
-  brand        String?     // Vehicle manufacturer (Toyota, Honda, etc.) - renamed from make
-  model        String?     // Vehicle model (Corolla, Civic, etc.)
-  year         Int?        // Manufacturing year
-  color        String?     // Vehicle color
-  engineNo     String      @unique // Engine number - required field
-  chassisNo    String      @unique // Chassis number - required field
-  registrationNo String?   @unique // Registration number - optional separate from plate
-  
-  ownerId      String
-  owner        User        @relation("OwnerVehicles", fields: [ownerId], references: [id])
-  driverId     String? 
-  driver       User?       @relation("DriverVehicles", fields: [driverId], references: [id])
-  
-  registeredAt DateTime    @default(now())
-  expiresAt    DateTime?   // Registration expiry date
-  isDeleted    Boolean     @default(false)
-  isActive     Boolean     @default(true)
-  
-  violations   Violation[]
-  assignments  VehicleAssignment[]
-  
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id             String      @id @default(uuid())
+  type           VehicleType
+  plateNo        String      @unique
+  brand          String? // Vehicle manufacturer (Toyota, Honda, etc.) - renamed from make
+  model          String? // Vehicle model (Corolla, Civic, etc.)
+  year           Int? // Manufacturing year
+  color          String? // Vehicle color
+  engineNo       String      @unique // Engine number - required field
+  chassisNo      String      @unique // Chassis number - required field
+  registrationNo String?     @unique // Registration number - optional separate from plate
+
+  ownerId  String
+  owner    User    @relation("OwnerVehicles", fields: [ownerId], references: [id])
+  driverId String?
+  driver   User?   @relation("DriverVehicles", fields: [driverId], references: [id])
+
+  registeredAt DateTime  @default(now())
+  expiresAt    DateTime? // Registration expiry date
+  isDeleted    Boolean   @default(false)
+  isActive     Boolean   @default(true)
+
+  violations  Violation[]
+  assignments VehicleAssignment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([plateNo])
   @@index([engineNo])
@@ -443,19 +533,19 @@ model Vehicle {
 }
 
 model Violation {
-  id          String          @id @default(uuid())
-  ruleId      String
-  rule        Rule            @relation(fields: [ruleId], references: [id])
-  vehicleId   String
-  vehicle     Vehicle         @relation(fields: [vehicleId], references: [id])
-  
+  id        String  @id @default(uuid())
+  ruleId    String
+  rule      Rule    @relation(fields: [ruleId], references: [id])
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+
   // Normalized location
-  locationId  String?
-  location    Location?       @relation(fields: [locationId], references: [id])
-  
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
+
   description String?
   status      ViolationStatus @default(PENDING)
-  evidenceUrl String?         // Photo/video evidence URL
+  evidenceUrl String? // Photo/video evidence URL
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   fine        Fine?
@@ -468,18 +558,18 @@ model Violation {
 }
 
 model Fine {
-  id          String      @id @default(uuid())
-  violationId String      @unique
-  violation   Violation   @relation(fields: [violationId], references: [id])
+  id          String     @id @default(uuid())
+  violationId String     @unique
+  violation   Violation  @relation(fields: [violationId], references: [id])
   amount      Int
-  status      FineStatus  @default(UNPAID)
-  dueDate     DateTime?   // When the fine is due
-  issuedAt    DateTime    @default(now())
-  paidAt      DateTime?   // When fully paid
+  status      FineStatus @default(UNPAID)
+  dueDate     DateTime? // When the fine is due
+  issuedAt    DateTime   @default(now())
+  paidAt      DateTime? // When fully paid
   payments    Payment[]
-  
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([dueDate])
@@ -488,19 +578,19 @@ model Fine {
 }
 
 model Payment {
-  id              String        @id @default(uuid())
-  userId          String
-  user            User          @relation(fields: [userId], references: [id])
-  fineId          String
-  fine            Fine          @relation(fields: [fineId], references: [id])
-  amount          Int
-  transactionId   String?       // External transaction reference
-  paymentMethod   PaymentMethod
-  paymentStatus   String        @default("COMPLETED") // PENDING, COMPLETED, FAILED, REFUNDED
-  
-  paidAt          DateTime
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id            String        @id @default(uuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  fineId        String
+  fine          Fine          @relation(fields: [fineId], references: [id])
+  amount        Int
+  transactionId String? // External transaction reference
+  paymentMethod PaymentMethod
+  paymentStatus String        @default("COMPLETED") // PENDING, COMPLETED, FAILED, REFUNDED
+
+  paidAt    DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([fineId])
@@ -510,38 +600,38 @@ model Payment {
 }
 
 model Incident {
-  id           String    @id @default(uuid())
-  externalId   String?   @unique // External ID for AI service integration
-  type         String    // ACCIDENT, FIRE, TRAFFIC_VIOLATION, etc.
-  title        String
-  description  String?
-  priority     String?   // HIGH, MEDIUM, LOW
-  severity     String?   // LOW, MEDIUM, HIGH, CRITICAL
-  status       String    @default("REPORTED") // REPORTED, IN_PROGRESS, RESOLVED, CLOSED
-  
+  id          String  @id @default(uuid())
+  externalId  String? @unique // External ID for AI service integration
+  type        String // ACCIDENT, FIRE, TRAFFIC_VIOLATION, etc.
+  title       String
+  description String?
+  priority    String? // HIGH, MEDIUM, LOW
+  severity    String? // LOW, MEDIUM, HIGH, CRITICAL
+  status      String  @default("REPORTED") // REPORTED, IN_PROGRESS, RESOLVED, CLOSED
+
   // Location data - can be either normalized or direct
-  locationId   String?
-  location     Location? @relation(fields: [locationId], references: [id])
-  
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
+
   // Direct location data for AI integration
-  latitude     Float?
-  longitude    Float?
-  address      String?
-  
+  latitude  Float?
+  longitude Float?
+  address   String?
+
   // Metadata for AI integration
-  metadata     Json?     // Store AI confidence, vehicles involved, etc.
-  
+  metadata Json? // Store AI confidence, vehicles involved, etc.
+
   reportedById String?
-  reportedBy   User?     @relation(fields: [reportedById], references: [id])
-  
+  reportedBy   User?   @relation(fields: [reportedById], references: [id])
+
   // Police station handling this incident
   handlingStationId String?
   handlingStation   PoliceStation? @relation(fields: [handlingStationId], references: [id])
-  
-  reportedAt   DateTime  @default(now())
-  resolvedAt   DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+
+  reportedAt DateTime  @default(now())
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([type])
   @@index([status])
@@ -554,27 +644,27 @@ model Incident {
 }
 
 model Complaint {
-  id           String        @id @default(uuid())
-  type         ComplaintType
-  title        String
-  description  String?
-  priority     String?       // HIGH, MEDIUM, LOW
-  status       String        @default("PENDING") // PENDING, IN_PROGRESS, RESOLVED, CLOSED
-  
+  id          String        @id @default(uuid())
+  type        ComplaintType
+  title       String
+  description String?
+  priority    String? // HIGH, MEDIUM, LOW
+  status      String        @default("PENDING") // PENDING, IN_PROGRESS, RESOLVED, CLOSED
+
   // Normalized location
-  locationId   String?
-  location     Location?     @relation(fields: [locationId], references: [id])
-  
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
+
   complainerId String?
-  complainer   User?         @relation(fields: [complainerId], references: [id])
-  
+  complainer   User?   @relation(fields: [complainerId], references: [id])
+
   // Police station handling this complaint
   handlingStationId String?
   handlingStation   PoliceStation? @relation(fields: [handlingStationId], references: [id])
-  
-  resolvedAt   DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([type])
   @@index([status])
@@ -583,54 +673,109 @@ model Complaint {
   @@map("complaints")
 }
 
+model CitizenReport {
+  id        String @id @default(uuid())
+  citizenId String
+  citizen   User   @relation("CitizenReports", fields: [citizenId], references: [id])
+
+  vehiclePlate  String
+  violationType ViolationType
+  description   String?
+  evidenceUrl   String[] // Array of URLs for uploaded images/videos
+
+  // Normalized location
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id])
+
+  status      CitizenReportStatus @default(PENDING)
+  reviewNotes String?
+  reviewedBy  String?
+  reviewer    User?               @relation("ReviewedReports", fields: [reviewedBy], references: [id])
+  reviewedAt  DateTime?
+
+  // Police transparency - Additional reviewer info
+  reviewerBadgeNumber String?
+  reviewerStationId   String?
+
+  rewardAmount  Float? // If approved, citizen gets 5% reward
+  penaltyAmount Float? // If rejected, citizen gets 5% penalty
+
+  // Appeal system (one-time appeal for rejected reports)
+  appealSubmitted     Boolean      @default(false)
+  appealReason        String?
+  appealStatus        AppealStatus?
+  appealReviewedBy    String?
+  appealReviewer      User?        @relation("AppealReviewedReports", fields: [appealReviewedBy], references: [id])
+  appealReviewedAt    DateTime?
+  appealNotes         String?
+  
+  // Additional penalty for failed appeals (1.5% extra)
+  additionalPenaltyApplied Boolean @default(false)
+  additionalPenaltyAmount  Float?
+
+  rewardTransactions RewardTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([citizenId])
+  @@index([vehiclePlate])
+  @@index([status])
+  @@index([violationType])
+  @@index([createdAt])
+  @@index([appealSubmitted])
+  @@index([appealStatus])
+  @@map("citizen_reports")
+}
+
 model CitizenGem {
   citizenId    String   @id
   citizen      User     @relation(fields: [citizenId], references: [id])
   amount       Int      @default(0)
   isRestricted Boolean  @default(false)
   lastUpdated  DateTime @default(now())
-  
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("citizen_gems")
 }
 
 // Driving License Management System
 model DrivingLicense {
-  id              String    @id @default(uuid())
-  licenseNo       String    @unique
-  citizenId       String    
-  citizen         User      @relation("DrivingLicenses", fields: [citizenId], references: [id])
-  
+  id        String @id @default(uuid())
+  licenseNo String @unique
+  citizenId String
+  citizen   User   @relation("DrivingLicenses", fields: [citizenId], references: [id])
+
   // License Details
-  category        LicenseCategory // Enum for license categories
-  issueDate       DateTime
-  expiryDate      DateTime
-  issuingAuthority String   // "BRTA", "DISTRICT_TRANSPORT", etc.
-  
+  category         LicenseCategory // Enum for license categories
+  issueDate        DateTime
+  expiryDate       DateTime
+  issuingAuthority String // "BRTA", "DISTRICT_TRANSPORT", etc.
+
   // Status and Verification
-  isActive        Boolean   @default(true)
-  isVerified      Boolean   @default(false)
-  verifiedBy      String?   // ID of admin/police who verified
-  verifiedAt      DateTime?
-  
+  isActive   Boolean   @default(true)
+  isVerified Boolean   @default(false)
+  verifiedBy String? // ID of admin/police who verified
+  verifiedAt DateTime?
+
   // Restrictions and endorsements
-  restrictions    String?   // JSON array of restrictions ["NO_NIGHT_DRIVING", "CORRECTIVE_LENSES"]
-  endorsements    String?   // JSON array of endorsements ["MOTORCYCLE", "MANUAL_TRANSMISSION"]
-  
+  restrictions String? // JSON array of restrictions ["NO_NIGHT_DRIVING", "CORRECTIVE_LENSES"]
+  endorsements String? // JSON array of endorsements ["MOTORCYCLE", "MANUAL_TRANSMISSION"]
+
   // Violation tracking
-  violationCount  Int       @default(0)
-  lastViolationAt DateTime?
-  isSuspended     Boolean   @default(false)
-  suspendedUntil  DateTime?
+  violationCount   Int       @default(0)
+  lastViolationAt  DateTime?
+  isSuspended      Boolean   @default(false)
+  suspendedUntil   DateTime?
   suspensionReason String?
-  
+
   // Relations
   vehicleAssignments VehicleAssignment[]
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([licenseNo])
   @@index([citizenId])
@@ -643,37 +788,178 @@ model DrivingLicense {
 
 // Vehicle Assignment System - tracks who is assigned to drive which vehicle
 model VehicleAssignment {
-  id          String    @id @default(uuid())
-  vehicleId   String
-  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id])
-  citizenId   String
-  citizen     User      @relation("VehicleAssignments", fields: [citizenId], references: [id])
-  
-  assignedBy  String    // ID of the user who made the assignment (vehicle owner or admin)
-  assignor    User      @relation("AssignmentsMade", fields: [assignedBy], references: [id])
-  
+  id        String  @id @default(uuid())
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+  citizenId String
+  citizen   User    @relation("VehicleAssignments", fields: [citizenId], references: [id])
+
+  assignedBy String // ID of the user who made the assignment (vehicle owner or admin)
+  assignor   User   @relation("AssignmentsMade", fields: [assignedBy], references: [id])
+
   // Driving License Verification
-  drivingLicenseId String?  // Required valid driving license
+  drivingLicenseId String? // Required valid driving license
   drivingLicense   DrivingLicense? @relation(fields: [drivingLicenseId], references: [id])
-  
-  assignedAt  DateTime  @default(now())
-  validFrom   DateTime  @default(now())
-  validUntil  DateTime? // Optional expiry date for the assignment
-  isActive    Boolean   @default(true)
-  notes       String?   // Optional notes about the assignment
-  
+
+  assignedAt DateTime  @default(now())
+  validFrom  DateTime  @default(now())
+  validUntil DateTime? // Optional expiry date for the assignment
+  isActive   Boolean   @default(true)
+  notes      String? // Optional notes about the assignment
+
   // Assignment approval (for companies/organizations)
-  requiresApproval Boolean  @default(false)
-  isApproved      Boolean  @default(true)
-  approvedBy      String?
-  approvedAt      DateTime?
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  requiresApproval Boolean   @default(false)
+  isApproved       Boolean   @default(true)
+  approvedBy       String?
+  approvedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([vehicleId])
   @@index([citizenId])
   @@index([isActive])
   @@index([validFrom, validUntil])
   @@map("vehicle_assignments")
+}
+
+// Reward Transaction System - tracks rewards and penalties
+model RewardTransaction {
+  id          String            @id @default(uuid())
+  userId      String
+  user        User              @relation(fields: [userId], references: [id])
+  amount      Float
+  type        TransactionType // REWARD, PENALTY, BONUS, DEDUCTION
+  source      TransactionSource // CITIZEN_REPORT, VIOLATION, FINE_PAYMENT, SYSTEM
+  description String
+
+  // Related entities
+  relatedReportId     String?
+  relatedReport       CitizenReport? @relation(fields: [relatedReportId], references: [id])
+  relatedViolationId  String?
+
+  status      TransactionStatus @default(PENDING)
+  processedAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Debt relation
+  debtsCreated OutstandingDebt[] @relation("DebtSource")
+
+  @@index([userId])
+  @@index([type])
+  @@index([source])
+  @@index([status])
+  @@index([createdAt])
+  @@index([relatedReportId])
+  @@map("reward_transactions")
+}
+
+// Withdrawal Request System - tracks withdrawal requests
+model WithdrawalRequest {
+  id             String           @id @default(uuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id])
+  amount         Float
+  method         WithdrawalMethod // BANK_TRANSFER, MOBILE_BANKING, CASH
+  accountDetails Json // Store account details as JSON
+  status         WithdrawalStatus @default(PENDING)
+  notes          String?
+
+  requestedAt DateTime  @default(now())
+  processedAt DateTime?
+  processedBy String?
+  processor   User?     @relation("ProcessedWithdrawals", fields: [processedBy], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([requestedAt])
+  @@index([processedBy])
+  @@map("withdrawal_requests")
+}
+
+// Outstanding Debt System - tracks negative balances and late payment penalties
+model OutstandingDebt {
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation("UserDebts", fields: [userId], references: [id])
+  
+  originalAmount    Float     // Original debt amount (negative balance at creation)
+  currentAmount     Float     // Current amount owed (includes late fees)
+  lateFees          Float     @default(0) // Accumulated late payment fees
+  
+  dueDate           DateTime  // 7 days from creation
+  lastPenaltyDate   DateTime? // Last time penalty was applied
+  weeksPastDue      Int       @default(0) // Number of weeks past due date
+  
+  status            DebtStatus @default(OUTSTANDING) // OUTSTANDING, PAID, WAIVED
+  
+  // Payment tracking
+  paidAmount        Float     @default(0)
+  paidAt            DateTime?
+  paymentReference  String?   // Reference to payment transaction
+  
+  // Related transaction that created the debt
+  relatedTransactionId String?
+  relatedTransaction   RewardTransaction? @relation("DebtSource", fields: [relatedTransactionId], references: [id])
+  
+  notes             String?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([createdAt])
+  @@map("outstanding_debts")
+}
+
+enum DebtStatus {
+  OUTSTANDING // Still owed
+  PAID        // Fully paid
+  WAIVED      // Forgiven by admin
+  PARTIAL     // Partially paid
+}
+
+// Notification System - for all user notifications
+model Notification {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  title   String
+  message String
+  type    NotificationType
+
+  // Related entity (optional)
+  relatedEntityType String? // "REPORT", "APPEAL", "DEBT", "TRANSACTION", etc.
+  relatedEntityId   String?
+
+  // Read status
+  isRead Boolean   @default(false)
+  readAt DateTime?
+
+  // Priority and action
+  priority    NotificationPriority @default(NORMAL)
+  actionUrl   String? // URL to navigate when clicked
+  actionLabel String? // Label for action button
+
+  // Metadata (flexible JSON for additional info)
+  metadata Json?
+
+  // Expiration (optional)
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([type])
+  @@index([createdAt])
+  @@index([userId, isRead])
+  @@map("notifications")
 }

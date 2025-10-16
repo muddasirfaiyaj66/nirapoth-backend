@@ -25,10 +25,21 @@ export class StatusUtils {
     /**
      * Blocks a user
      */
-    static async blockUser(userId, blocked = true) {
+    static async blockUser(userId, blocked = true, reason, blockedBy) {
         return await prisma.user.update({
             where: { id: userId },
-            data: { isBlocked: blocked },
+            data: {
+                isBlocked: blocked,
+                ...(blocked && {
+                    blockedAt: new Date(),
+                    blockReason: reason,
+                    blockedBy: blockedBy,
+                }),
+                ...(!blocked && {
+                    unblockedAt: new Date(),
+                    unblockedBy: blockedBy,
+                }),
+            },
         });
     }
     /**

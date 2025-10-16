@@ -90,7 +90,9 @@ export const requestLogger = (req, res, next) => {
  */
 export const requestSizeLimiter = (req, res, next) => {
     const contentLength = parseInt(req.get("content-length") || "0", 10);
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    // Increased to 150MB to handle base64-encoded files (temporary until Cloudinary is set up)
+    // Base64 encoding increases file size by ~33% (100MB video → ~133MB)
+    const maxSize = 150 * 1024 * 1024; // 150MB
     if (contentLength > maxSize) {
         res.status(413).json({
             success: false,

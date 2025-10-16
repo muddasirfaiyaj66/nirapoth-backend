@@ -48,6 +48,12 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // Hash password
     const hashedPassword = await hashPassword(validatedData.password);
 
+    // Check if in development mode without email config
+    const isDevelopment = process.env.NODE_ENV === "development";
+    const hasEmailConfig =
+      process.env.EMAIL_SEND_USER_EMAIL && process.env.EMAIL_SEND_USER_PASS;
+    const autoVerifyInDev = isDevelopment && !hasEmailConfig;
+
     // Generate email verification token
     const verificationToken = TokenService.generateEmailVerificationToken();
     const hashedToken = TokenService.hashToken(verificationToken);
@@ -64,8 +70,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         role: "CITIZEN", // Force CITIZEN role for all new registrations
         nidNo: validatedData.nidNo,
         birthCertificateNo: validatedData.birthCertificateNo,
-        emailVerificationToken: hashedToken,
-        emailVerificationExpires: tokenExpires,
+        emailVerificationToken: autoVerifyInDev ? null : hashedToken,
+        emailVerificationExpires: autoVerifyInDev ? null : tokenExpires,
+        isEmailVerified: autoVerifyInDev, // Auto-verify in dev mode without email config
       },
       select: {
         id: true,
@@ -84,24 +91,31 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       },
     });
 
-    // Send verification email
-    try {
-      const emailService = new EmailService();
-      await emailService.sendVerificationEmail({
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        verificationToken,
-      });
-    } catch (emailError) {
-      console.error("Failed to send verification email:", emailError);
-      // Don't fail registration if email fails
+    // Send verification email (skip in dev mode without email config)
+    if (!autoVerifyInDev) {
+      try {
+        const emailService = new EmailService();
+        await emailService.sendVerificationEmail({
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          verificationToken,
+        });
+      } catch (emailError) {
+        console.error("Failed to send verification email:", emailError);
+        // Don't fail registration if email fails
+      }
+    } else {
+      console.warn(
+        `⚠️  Email verification auto-bypassed for ${user.email} (development mode without email config)`
+      );
     }
 
     const response: SuccessResponse = {
       success: true,
-      message:
-        "User registered successfully. Please check your email for verification link.",
+      message: autoVerifyInDev
+        ? "User registered successfully. Email verification bypassed in development mode."
+        : "User registered successfully. Please check your email for verification link.",
       data: { user },
       statusCode: 201,
     };
@@ -244,14 +258,25 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Check if email is verified
-    if (!user.isEmailVerified) {
+    // Check if email is verified (skip in development if email not configured)
+    const isDevelopment = process.env.NODE_ENV === "development";
+    const hasEmailConfig =
+      process.env.EMAIL_SEND_USER_EMAIL && process.env.EMAIL_SEND_USER_PASS;
+
+    if (!user.isEmailVerified && !(isDevelopment && !hasEmailConfig)) {
       res.status(403).json({
         success: false,
         message: "Please verify your email address before logging in",
         statusCode: 403,
       });
       return;
+    }
+
+    // Log bypass warning in development
+    if (!user.isEmailVerified && isDevelopment && !hasEmailConfig) {
+      console.warn(
+        `⚠️  Email verification bypassed for ${user.email} (development mode without email config)`
+      );
     }
 
     // Generate tokens

@@ -1,8 +1,10 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import { PrismaClient } from "@prisma/client";
+import { createServer } from "http";
 import { config } from "./config/env";
 import { SeedService } from "./services/seed.service";
+import { initializeSocket } from "./config/socket";
 // Import middleware
 import { corsMiddleware, securityMiddleware, requestLogger, requestSizeLimiter, responseTimeHeader, } from "./middlewares/security.middleware";
 import { rateLimiter } from "./middlewares/rateLimit.middleware";
@@ -20,9 +22,15 @@ import { vehicleRoutes } from "./routes/vehicle.routes";
 import { violationRoutes } from "./routes/violation.routes";
 import { complaintRoutes } from "./routes/complaint.routes";
 import { paymentRoutes } from "./routes/payment.routes";
+import { fineRoutes } from "./routes/fine.routes";
 import { aiIntegrationRoutes } from "./routes/aiIntegration.routes";
 import { citizenRoutes } from "./routes/citizen.routes";
+import cameraRoutes from "./routes/camera.routes";
+import notificationRoutes from "./routes/notification.routes";
+import citizenReportsRoutes from "./routes/citizenReports.routes";
+import rewardsRoutes from "./routes/rewards.routes";
 export const app = express();
+const httpServer = createServer(app);
 const prisma = new PrismaClient();
 const PORT = config.port;
 // Trust proxy for accurate IP addresses (important for rate limiting)
@@ -32,8 +40,10 @@ app.use(securityMiddleware);
 app.use(corsMiddleware);
 app.use(responseTimeHeader);
 // Body parsing middleware
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+// Increased limit to 150mb to handle base64-encoded files (temporary until Cloudinary is set up)
+// Base64 encoding increases file size by ~33% (100MB video → ~133MB)
+app.use(express.json({ limit: "150mb" }));
+app.use(express.urlencoded({ extended: true, limit: "150mb" }));
 app.use(cookieParser());
 // Request size limiting
 app.use(requestSizeLimiter);
@@ -67,8 +77,13 @@ app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/violations", violationRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/fines", fineRoutes);
 app.use("/api/ai", aiIntegrationRoutes);
 app.use("/api/citizen", citizenRoutes);
+app.use("/api/cameras", cameraRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/citizen-reports", citizenReportsRoutes);
+app.use("/api/rewards", rewardsRoutes);
 // Test route to check if server is running (legacy)
 app.get("/", (req, res) => {
     res.json({
@@ -104,10 +119,13 @@ process.on("uncaughtException", (err) => {
     console.error("Uncaught Exception:", err);
     process.exit(1);
 });
-app.listen(PORT, async () => {
+// Initialize Socket.IO
+initializeSocket(httpServer);
+httpServer.listen(PORT, async () => {
     console.log(`🚀 Nirapoth Backend Server is running!`);
     console.log(`📍 Environment: ${config.nodeEnv}`);
     console.log(`🌐 Server: http://localhost:${PORT}`);
+    console.log(`🔌 Socket.IO: Ready for real-time connections`);
     console.log(`🏥 Health Check: http://localhost:${PORT}/health`);
     console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth`);
     console.log(`👤 Profile API: http://localhost:${PORT}/api/profile`);

@@ -1,4 +1,12 @@
-import { PrismaClient } from "@prisma/client";
+import {
+  PrismaClient,
+  NotificationType,
+  NotificationPriority,
+} from "@prisma/client";
+import {
+  sendNotificationToUser,
+  sendUrgentNotification,
+} from "../config/socket";
 
 const prisma = new PrismaClient();
 
@@ -6,139 +14,193 @@ export interface NotificationData {
   userId: string;
   title: string;
   message: string;
-  type: "VIOLATION" | "FINE" | "COMPLAINT" | "PAYMENT" | "SYSTEM";
-  data?: any;
-  priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  type: NotificationType;
+  relatedEntityType?: string;
+  relatedEntityId?: string;
+  priority?: NotificationPriority;
+  actionUrl?: string;
+  actionLabel?: string;
+  metadata?: any;
+  expiresAt?: Date;
 }
 
 export class NotificationService {
   /**
-   * Send notification to user
+   * Send notification to user - persists to database
    */
   static async sendNotification(data: NotificationData): Promise<void> {
     try {
-      // In a real implementation, this would integrate with:
-      // - Push notification services (FCM, APNS)
-      // - Email notifications
-      // - SMS services
-      // - WebSocket connections
-      // - In-app notifications
-
-      console.log(`Notification sent to user ${data.userId}:`, {
-        title: data.title,
-        message: data.message,
-        type: data.type,
-        priority: data.priority || "MEDIUM",
-        data: data.data,
+      // Create notification in database
+      await prisma.notification.create({
+        data: {
+          userId: data.userId,
+          title: data.title,
+          message: data.message,
+          type: data.type,
+          relatedEntityType: data.relatedEntityType,
+          relatedEntityId: data.relatedEntityId,
+          priority: data.priority || "NORMAL",
+          actionUrl: data.actionUrl,
+          actionLabel: data.actionLabel,
+          metadata: data.metadata
+            ? JSON.parse(JSON.stringify(data.metadata))
+            : null,
+          expiresAt: data.expiresAt,
+        },
       });
 
-      // For now, we'll just log the notification
-      // In production, you would:
-      // 1. Store notification in database
-      // 2. Send push notification
-      // 3. Send email if needed
-      // 4. Send SMS if urgent
-      // 5. Update WebSocket connections
+      console.log(
+        `✅ Notification created for user ${data.userId}: ${data.title}`
+      );
+
+      // Emit real-time notification via Socket.IO
+      if (data.priority === "URGENT") {
+        sendUrgentNotification(data.userId, {
+          userId: data.userId,
+          title: data.title,
+          message: data.message,
+          type: data.type,
+          priority: data.priority,
+          relatedEntityType: data.relatedEntityType,
+          relatedEntityId: data.relatedEntityId,
+          actionUrl: data.actionUrl,
+          actionLabel: data.actionLabel,
+          metadata: data.metadata,
+        });
+      } else {
+        sendNotificationToUser(data.userId, {
+          userId: data.userId,
+          title: data.title,
+          message: data.message,
+          type: data.type,
+          priority: data.priority || "NORMAL",
+          relatedEntityType: data.relatedEntityType,
+          relatedEntityId: data.relatedEntityId,
+          actionUrl: data.actionUrl,
+          actionLabel: data.actionLabel,
+          metadata: data.metadata,
+        });
+      }
+
+      // TODO: In production, you can also add:
+      // 1. Send push notification (FCM, APNS)
+      // 2. Send email if needed
+      // 3. Send SMS if urgent
     } catch (error) {
-      console.error("Error sending notification:", error);
+      console.error("❌ Error creating notification:", error);
+      throw error;
     }
   }
 
   /**
-   * Send violation notification
+   * Send report submission notification
    */
-  static async sendViolationNotification(
+  static async sendReportSubmittedNotification(
     userId: string,
-    violationData: {
-      violationId: string;
-      vehiclePlate: string;
-      ruleTitle: string;
-      fineAmount?: number;
+    reportData: {
+      reportId: string;
+      description: string;
     }
   ): Promise<void> {
     await this.sendNotification({
       userId,
-      title: "Traffic Violation Detected",
-      message: `A traffic violation has been detected for vehicle ${
-        violationData.vehiclePlate
-      }. ${violationData.ruleTitle}${
-        violationData.fineAmount ? ` - Fine: ৳${violationData.fineAmount}` : ""
+      title: "Report Submitted Successfully",
+      message: `Your report has been submitted and is under review. Report ID: ${reportData.reportId}`,
+      type: "REPORT_SUBMITTED",
+      relatedEntityType: "REPORT",
+      relatedEntityId: reportData.reportId,
+      metadata: reportData,
+      priority: "NORMAL",
+    });
+  }
+
+  /**
+   * Send report approved notification
+   */
+  static async sendReportApprovedNotification(
+    userId: string,
+    reportData: {
+      reportId: string;
+      rewardAmount?: number;
+    }
+  ): Promise<void> {
+    await this.sendNotification({
+      userId,
+      title: "Report Approved",
+      message: `Your report has been approved${
+        reportData.rewardAmount
+          ? ` and you earned ৳${reportData.rewardAmount} reward!`
+          : "!"
       }`,
-      type: "VIOLATION",
-      data: violationData,
+      type: "REPORT_APPROVED",
+      relatedEntityType: "REPORT",
+      relatedEntityId: reportData.reportId,
+      metadata: reportData,
       priority: "HIGH",
     });
   }
 
   /**
-   * Send fine notification
+   * Send report rejected notification
    */
-  static async sendFineNotification(
+  static async sendReportRejectedNotification(
     userId: string,
-    fineData: {
-      fineId: string;
+    reportData: {
+      reportId: string;
+      reason?: string;
+    }
+  ): Promise<void> {
+    await this.sendNotification({
+      userId,
+      title: "Report Rejected",
+      message: `Your report has been rejected${
+        reportData.reason ? `: ${reportData.reason}` : "."
+      }`,
+      type: "REPORT_REJECTED",
+      relatedEntityType: "REPORT",
+      relatedEntityId: reportData.reportId,
+      metadata: reportData,
+      priority: "NORMAL",
+    });
+  }
+
+  /**
+   * Send reward earned notification
+   */
+  static async sendRewardEarnedNotification(
+    userId: string,
+    rewardData: {
       amount: number;
-      dueDate: Date;
-      vehiclePlate: string;
+      reason: string;
     }
   ): Promise<void> {
     await this.sendNotification({
       userId,
-      title: "New Fine Issued",
-      message: `A fine of ৳${fineData.amount} has been issued for vehicle ${
-        fineData.vehiclePlate
-      }. Due date: ${fineData.dueDate.toLocaleDateString()}`,
-      type: "FINE",
-      data: fineData,
+      title: "Reward Earned!",
+      message: `Congratulations! You've earned ৳${rewardData.amount} for ${rewardData.reason}`,
+      type: "REWARD_EARNED",
+      metadata: rewardData,
       priority: "HIGH",
     });
   }
 
   /**
-   * Send complaint status update notification
+   * Send payment received notification
    */
-  static async sendComplaintStatusNotification(
-    userId: string,
-    complaintData: {
-      complaintId: string;
-      title: string;
-      status: string;
-      stationName?: string;
-    }
-  ): Promise<void> {
-    await this.sendNotification({
-      userId,
-      title: "Complaint Status Update",
-      message: `Your complaint "${
-        complaintData.title
-      }" status has been updated to ${complaintData.status}${
-        complaintData.stationName ? ` by ${complaintData.stationName}` : ""
-      }`,
-      type: "COMPLAINT",
-      data: complaintData,
-      priority: "MEDIUM",
-    });
-  }
-
-  /**
-   * Send payment confirmation notification
-   */
-  static async sendPaymentConfirmationNotification(
+  static async sendPaymentReceivedNotification(
     userId: string,
     paymentData: {
-      paymentId: string;
       amount: number;
-      method: string;
-      fineId: string;
+      transactionId: string;
     }
   ): Promise<void> {
     await this.sendNotification({
       userId,
-      title: "Payment Confirmed",
-      message: `Your payment of ৳${paymentData.amount} via ${paymentData.method} has been confirmed.`,
-      type: "PAYMENT",
-      data: paymentData,
-      priority: "MEDIUM",
+      title: "Payment Received",
+      message: `Your payment of ৳${paymentData.amount} has been received. Transaction ID: ${paymentData.transactionId}`,
+      type: "PAYMENT_RECEIVED",
+      metadata: paymentData,
+      priority: "NORMAL",
     });
   }
 
@@ -148,7 +210,7 @@ export class NotificationService {
   static async sendSystemNotification(
     title: string,
     message: string,
-    priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT" = "MEDIUM"
+    priority: NotificationPriority = "NORMAL"
   ): Promise<void> {
     try {
       // Get all active users
@@ -160,105 +222,97 @@ export class NotificationService {
         select: { id: true },
       });
 
-      // Send notification to all users
-      for (const user of users) {
-        await this.sendNotification({
+      // Create notifications for all users in batch
+      await prisma.notification.createMany({
+        data: users.map((user) => ({
           userId: user.id,
           title,
           message,
-          type: "SYSTEM",
+          type: "SYSTEM" as NotificationType,
           priority,
-        });
-      }
-    } catch (error) {
-      console.error("Error sending system notification:", error);
-    }
-  }
-
-  /**
-   * Send emergency notification to specific area
-   */
-  static async sendEmergencyNotification(
-    area: string,
-    title: string,
-    message: string,
-    priority: "HIGH" | "URGENT" = "URGENT"
-  ): Promise<void> {
-    try {
-      // Get users in the specific area
-      const users = await prisma.user.findMany({
-        where: {
-          isDeleted: false,
-          isBlocked: false,
-          OR: [
-            { presentDistrict: { contains: area, mode: "insensitive" } },
-            { presentCity: { contains: area, mode: "insensitive" } },
-            { presentDivision: { contains: area, mode: "insensitive" } },
-          ],
-        },
-        select: { id: true },
+        })),
       });
 
-      // Send notification to users in the area
-      for (const user of users) {
-        await this.sendNotification({
-          userId: user.id,
-          title: `Emergency Alert - ${area}`,
-          message,
-          type: "SYSTEM",
-          priority,
-        });
-      }
+      console.log(`✅ System notification sent to ${users.length} users`);
     } catch (error) {
-      console.error("Error sending emergency notification:", error);
+      console.error("❌ Error sending system notification:", error);
+      throw error;
     }
   }
 
   /**
-   * Send driving license expiry reminder
+   * Send info notification
    */
-  static async sendLicenseExpiryReminder(
+  static async sendInfoNotification(
     userId: string,
-    licenseData: {
-      licenseNo: string;
-      expiryDate: Date;
-      daysUntilExpiry: number;
-    }
+    title: string,
+    message: string,
+    metadata?: any
   ): Promise<void> {
     await this.sendNotification({
       userId,
-      title: "Driving License Expiry Reminder",
-      message: `Your driving license ${licenseData.licenseNo} will expire in ${
-        licenseData.daysUntilExpiry
-      } days (${licenseData.expiryDate.toLocaleDateString()}). Please renew it soon.`,
-      type: "SYSTEM",
-      data: licenseData,
-      priority: licenseData.daysUntilExpiry <= 7 ? "HIGH" : "MEDIUM",
+      title,
+      message,
+      type: "INFO",
+      metadata,
+      priority: "NORMAL",
     });
   }
 
   /**
-   * Send vehicle registration expiry reminder
+   * Send warning notification
    */
-  static async sendVehicleRegistrationExpiryReminder(
+  static async sendWarningNotification(
     userId: string,
-    vehicleData: {
-      plateNo: string;
-      expiryDate: Date;
-      daysUntilExpiry: number;
-    }
+    title: string,
+    message: string,
+    metadata?: any
   ): Promise<void> {
     await this.sendNotification({
       userId,
-      title: "Vehicle Registration Expiry Reminder",
-      message: `Your vehicle registration for ${
-        vehicleData.plateNo
-      } will expire in ${
-        vehicleData.daysUntilExpiry
-      } days (${vehicleData.expiryDate.toLocaleDateString()}). Please renew it soon.`,
-      type: "SYSTEM",
-      data: vehicleData,
-      priority: vehicleData.daysUntilExpiry <= 7 ? "HIGH" : "MEDIUM",
+      title,
+      message,
+      type: "WARNING",
+      metadata,
+      priority: "HIGH",
+    });
+  }
+
+  /**
+   * Send success notification
+   */
+  static async sendSuccessNotification(
+    userId: string,
+    title: string,
+    message: string,
+    metadata?: any
+  ): Promise<void> {
+    await this.sendNotification({
+      userId,
+      title,
+      message,
+      type: "SUCCESS",
+      metadata,
+      priority: "NORMAL",
+    });
+  }
+
+  /**
+   * Send error notification
+   */
+  static async sendErrorNotification(
+    userId: string,
+    title: string,
+    message: string,
+    metadata?: any
+  ): Promise<void> {
+    await this.sendNotification({
+      userId,
+      title,
+      message,
+      type: "ERROR",
+      metadata,
+      priority: "URGENT",
     });
   }
 }

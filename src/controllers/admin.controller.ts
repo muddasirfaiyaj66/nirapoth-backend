@@ -4,6 +4,57 @@ import { AuthRequest } from "../types/auth";
 
 const prisma = new PrismaClient();
 
+// Helper functions for role management
+function getRoleDescription(role: string): string {
+  const descriptions: Record<string, string> = {
+    SUPER_ADMIN: "Full system access with all privileges",
+    ADMIN: "Administrative access to manage users and system",
+    POLICE: "Police officer with law enforcement capabilities",
+    FIRE_SERVICE: "Fire service personnel",
+    CITIZEN: "Regular citizen user",
+    CITY_CORPORATION: "City corporation official",
+  };
+  return descriptions[role] || "Unknown role";
+}
+
+function getRolePermissions(role: string): string[] {
+  const permissions: Record<string, string[]> = {
+    SUPER_ADMIN: [
+      "manage_users",
+      "manage_roles",
+      "manage_system",
+      "view_analytics",
+      "manage_violations",
+      "manage_fines",
+    ],
+    ADMIN: [
+      "manage_users",
+      "view_analytics",
+      "manage_violations",
+      "manage_fines",
+    ],
+    POLICE: [
+      "create_violations",
+      "review_reports",
+      "manage_cases",
+      "view_violations",
+    ],
+    FIRE_SERVICE: ["respond_emergencies", "view_incidents"],
+    CITIZEN: [
+      "report_violations",
+      "view_own_violations",
+      "pay_fines",
+      "submit_appeals",
+    ],
+    CITY_CORPORATION: [
+      "manage_infrastructure",
+      "view_complaints",
+      "respond_to_reports",
+    ],
+  };
+  return permissions[role] || [];
+}
+
 export class AdminController {
   /**
    * Test analytics endpoint - simple database connectivity test
@@ -597,9 +648,82 @@ export class AdminController {
   }
 
   static async getAllUsers(req: AuthRequest, res: Response): Promise<void> {
-    res
-      .status(200)
-      .json({ success: true, message: "All users - placeholder", data: [] });
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const search = (req.query.search as string) || "";
+      const role = (req.query.role as string) || "all";
+      const status = (req.query.status as string) || "all";
+
+      const skip = (page - 1) * limit;
+
+      // Build where clause
+      const where: any = {
+        isDeleted: false,
+      };
+
+      if (search) {
+        where.OR = [
+          { firstName: { contains: search, mode: "insensitive" } },
+          { lastName: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      if (role !== "all") {
+        where.role = role;
+      }
+
+      if (status === "blocked") {
+        where.isBlocked = true;
+      } else if (status === "active") {
+        where.isBlocked = false;
+      }
+
+      // Get users and total count
+      const [users, total] = await Promise.all([
+        prisma.user.findMany({
+          where,
+          skip,
+          take: limit,
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            role: true,
+            isEmailVerified: true,
+            isBlocked: true,
+            isDeleted: true,
+            createdAt: true,
+            updatedAt: true,
+            profileImage: true,
+          },
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.user.count({ where }),
+      ]);
+
+      res.status(200).json({
+        success: true,
+        message: `Found ${users.length} users`,
+        data: {
+          users,
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch users",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 
   static async getUserStats(req: AuthRequest, res: Response): Promise<void> {
@@ -612,30 +736,160 @@ export class AdminController {
     req: AuthRequest,
     res: Response
   ): Promise<void> {
-    res.status(200).json({
-      success: true,
-      message: "Pending verifications - placeholder",
-      data: [],
-    });
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const status = (req.query.status as string) || "PENDING";
+
+      const skip = (page - 1) * limit;
+
+      // Build where clause based on status
+      const where: any = {
+        isDeleted: false,
+      };
+
+      if (status === "PENDING") {
+        where.isEmailVerified = false;
+      } else if (status === "VERIFIED") {
+        where.isEmailVerified = true;
+      }
+
+      // Get users and total count
+      const [users, total] = await Promise.all([
+        prisma.user.findMany({
+          where,
+          skip,
+          take: limit,
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            role: true,
+            isEmailVerified: true,
+            isBlocked: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.user.count({ where }),
+      ]);
+
+      res.status(200).json({
+        success: true,
+        message: `Found ${users.length} users for verification`,
+        data: users,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching pending verifications:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch pending verifications",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 
   static async getRoleManagement(
     req: AuthRequest,
     res: Response
   ): Promise<void> {
-    res.status(200).json({
-      success: true,
-      message: "Role management - placeholder",
-      data: [],
-    });
+    try {
+      // Get role distribution
+      const roleStats = await prisma.user.groupBy({
+        by: ["role"],
+        _count: { role: true },
+        where: { isDeleted: false },
+      });
+
+      const roles = roleStats.map((stat) => ({
+        role: stat.role,
+        count: stat._count.role,
+        description: getRoleDescription(stat.role),
+        permissions: getRolePermissions(stat.role),
+      }));
+
+      res.status(200).json({
+        success: true,
+        message: `Found ${roles.length} roles`,
+        data: roles,
+      });
+    } catch (error) {
+      console.error("Error fetching role management:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch role management",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 
   static async getBlockedUsers(req: AuthRequest, res: Response): Promise<void> {
-    res.status(200).json({
-      success: true,
-      message: "Blocked users - placeholder",
-      data: [],
-    });
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      const skip = (page - 1) * limit;
+
+      // Get blocked users
+      const [users, total] = await Promise.all([
+        prisma.user.findMany({
+          where: {
+            isBlocked: true,
+            isDeleted: false,
+          },
+          skip,
+          take: limit,
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            role: true,
+            isBlocked: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+          orderBy: { updatedAt: "desc" },
+        }),
+        prisma.user.count({
+          where: {
+            isBlocked: true,
+            isDeleted: false,
+          },
+        }),
+      ]);
+
+      res.status(200).json({
+        success: true,
+        message: `Found ${users.length} blocked users`,
+        data: {
+          users,
+          pagination: {
+            total,
+            page,
+            limit,
+            pages: Math.ceil(total / limit),
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching blocked users:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch blocked users",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 
   static async createUser(req: AuthRequest, res: Response): Promise<void> {
@@ -653,21 +907,189 @@ export class AdminController {
   }
 
   static async verifyUser(req: AuthRequest, res: Response): Promise<void> {
-    res
-      .status(200)
-      .json({ success: true, message: "Verify user - placeholder", data: {} });
+    try {
+      const { userId, verified } = req.body;
+
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          message: "User ID is required",
+        });
+        return;
+      }
+
+      // Check if user exists
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+        return;
+      }
+
+      // Update user verification status
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          isEmailVerified: verified,
+          verifiedAt: verified ? new Date() : null,
+          verifiedBy: verified ? req.user?.id : null,
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          role: true,
+          isEmailVerified: true,
+          isBlocked: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: `User ${verified ? "verified" : "rejected"} successfully`,
+        data: updatedUser,
+      });
+    } catch (error) {
+      console.error("Error verifying user:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to verify user",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 
   static async blockUser(req: AuthRequest, res: Response): Promise<void> {
-    res
-      .status(200)
-      .json({ success: true, message: "Block user - placeholder", data: {} });
+    try {
+      const { userId, blocked } = req.body;
+
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          message: "User ID is required",
+        });
+        return;
+      }
+
+      // Check if user exists
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+        return;
+      }
+
+      // Update user block status
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          isBlocked: blocked,
+          blockedAt: blocked ? new Date() : null,
+          blockedBy: blocked ? req.user?.id : null,
+          unblockedAt: !blocked ? new Date() : null,
+          unblockedBy: !blocked ? req.user?.id : null,
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          role: true,
+          isBlocked: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: `User ${blocked ? "blocked" : "unblocked"} successfully`,
+        data: updatedUser,
+      });
+    } catch (error) {
+      console.error("Error blocking/unblocking user:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to update user block status",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 
   static async unblockUser(req: AuthRequest, res: Response): Promise<void> {
-    res
-      .status(200)
-      .json({ success: true, message: "Unblock user - placeholder", data: {} });
+    try {
+      const { userId } = req.body;
+
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          message: "User ID is required",
+        });
+        return;
+      }
+
+      // Check if user exists
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+        return;
+      }
+
+      // Unblock user
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          isBlocked: false,
+          unblockedAt: new Date(),
+          unblockedBy: req.user?.id,
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          role: true,
+          isBlocked: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "User unblocked successfully",
+        data: updatedUser,
+      });
+    } catch (error) {
+      console.error("Error unblocking user:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to unblock user",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 
   static async softDeleteUser(req: AuthRequest, res: Response): Promise<void> {

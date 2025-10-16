@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { PoliceManagementController } from "../controllers/policeManagement.controller";
+import { CitizenReportsController } from "../controllers/citizenReports.controller";
 import { authenticateToken } from "../middlewares/auth.middleware";
+import { roleMiddleware } from "../middlewares/role.middleware";
 
 const router = Router();
 
@@ -88,5 +90,60 @@ router.put(
  * @access Private
  */
 router.get("/statistics", PoliceManagementController.getPoliceStatistics);
+
+/**
+ * @route GET /api/police/pending-reports
+ * @desc Get pending citizen reports for review
+ * @access Private (Police/Admin/Super Admin only)
+ */
+router.get(
+  "/pending-reports",
+  roleMiddleware(["POLICE", "ADMIN", "SUPER_ADMIN"]),
+  CitizenReportsController.getPendingReports
+);
+
+/**
+ * @route GET /api/police/review-stats
+ * @desc Get review statistics for police dashboard
+ * @access Private (Police/Admin/Super Admin only)
+ */
+router.get(
+  "/review-stats",
+  roleMiddleware(["POLICE", "ADMIN", "SUPER_ADMIN"]),
+  CitizenReportsController.getReviewStats
+);
+
+/**
+ * @route GET /api/police/pending-appeals
+ * @desc Get pending appeals for review
+ * @access Private (Police/Admin/Super Admin only)
+ */
+router.get(
+  "/pending-appeals",
+  roleMiddleware(["POLICE", "ADMIN", "SUPER_ADMIN"]),
+  CitizenReportsController.getPendingAppeals
+);
+
+/**
+ * @route POST /api/police/review-appeal/:reportId
+ * @desc Review appeal (approve/reject)
+ * @access Private (Police/Admin/Super Admin only)
+ */
+router.post(
+  "/review-appeal/:reportId",
+  roleMiddleware(["POLICE", "ADMIN", "SUPER_ADMIN"]),
+  CitizenReportsController.reviewAppeal
+);
+
+/**
+ * @route POST /api/police/review/:reportId
+ * @desc Review citizen report (approve/reject)
+ * @access Private (Police/Admin/Super Admin only)
+ */
+router.post(
+  "/review/:reportId",
+  roleMiddleware(["POLICE", "ADMIN", "SUPER_ADMIN"]),
+  CitizenReportsController.reviewReport
+);
 
 export default router;
