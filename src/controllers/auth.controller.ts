@@ -123,6 +123,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     res.status(201).json(response);
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error("❌ Registration validation error:", error.issues);
       res.status(400).json({
         success: false,
         message: "Validation failed",

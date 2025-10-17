@@ -803,11 +803,116 @@ export class AdminController {
             .json({ success: true, message: "Create user - placeholder", data: {} });
     }
     static async updateUserRole(req, res) {
-        res.status(200).json({
-            success: true,
-            message: "Update user role - placeholder",
-            data: {},
-        });
+        try {
+            const { userId, role } = req.body;
+            const currentUser = req.user;
+            // Validate required fields
+            if (!userId || !role) {
+                res.status(400).json({
+                    success: false,
+                    message: "User ID and role are required",
+                    statusCode: 400,
+                });
+                return;
+            }
+            // Validate role
+            const validRoles = ["CITIZEN", "POLICE", "FIRE_SERVICE", "ADMIN", "SUPER_ADMIN"];
+            if (!validRoles.includes(role)) {
+                res.status(400).json({
+                    success: false,
+                    message: "Invalid role specified",
+                    statusCode: 400,
+                });
+                return;
+            }
+            // Get target user
+            const targetUser = await prisma.user.findUnique({
+                where: { id: userId },
+                select: {
+                    id: true,
+                    email: true,
+                    role: true,
+                    firstName: true,
+                    lastName: true,
+                },
+            });
+            if (!targetUser) {
+                res.status(404).json({
+                    success: false,
+                    message: "User not found",
+                    statusCode: 404,
+                });
+                return;
+            }
+            // Check permissions - implement role hierarchy
+            if (!currentUser) {
+                res.status(401).json({
+                    success: false,
+                    message: "Unauthorized",
+                    statusCode: 401,
+                });
+                return;
+            }
+            // SUPER_ADMIN can manage all roles
+            // ADMIN can manage CITIZEN, POLICE, FIRE_SERVICE but not other ADMINs or SUPER_ADMINs
+            if (currentUser.role === "ADMIN") {
+                if (["ADMIN", "SUPER_ADMIN"].includes(targetUser.role)) {
+                    res.status(403).json({
+                        success: false,
+                        message: "Admins cannot modify other admin accounts",
+                        statusCode: 403,
+                    });
+                    return;
+                }
+                if (["ADMIN", "SUPER_ADMIN"].includes(role)) {
+                    res.status(403).json({
+                        success: false,
+                        message: "Admins cannot assign admin roles",
+                        statusCode: 403,
+                    });
+                    return;
+                }
+            }
+            // Update user role
+            const updatedUser = await prisma.user.update({
+                where: { id: userId },
+                data: { role: role },
+                select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    phone: true,
+                    role: true,
+                    designation: true,
+                    stationId: true,
+                    nidNo: true,
+                    birthCertificateNo: true,
+                    profileImage: true,
+                    isEmailVerified: true,
+                    isBlocked: true,
+                    isDeleted: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            });
+            // Log the action
+            console.log(`✅ User role updated: ${targetUser.email} (${targetUser.role} → ${role}) by ${currentUser.email}`);
+            res.status(200).json({
+                success: true,
+                message: "User role updated successfully",
+                data: { user: updatedUser },
+                statusCode: 200,
+            });
+        }
+        catch (error) {
+            console.error("Update user role error:", error);
+            res.status(500).json({
+                success: false,
+                message: "Internal server error",
+                statusCode: 500,
+            });
+        }
     }
     static async verifyUser(req, res) {
         try {

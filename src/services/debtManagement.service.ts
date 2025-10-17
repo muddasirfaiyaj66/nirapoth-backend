@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -106,9 +106,12 @@ export class DebtManagementService {
   static async recordPayment(
     debtId: string,
     amount: number,
-    paymentReference: string
+    paymentReference: string,
+    tx?: Prisma.TransactionClient
   ) {
-    const debt = await prisma.outstandingDebt.findUnique({
+    const db = (tx as Prisma.TransactionClient) || prisma;
+
+    const debt = await db.outstandingDebt.findUnique({
       where: { id: debtId },
     });
 
@@ -116,17 +119,36 @@ export class DebtManagementService {
       throw new Error("Debt not found");
     }
 
+    console.log("📝 Recording payment - BEFORE:", {
+      debtId,
+      originalAmount: debt.originalAmount,
+      currentAmount: debt.currentAmount,
+      paidAmount: debt.paidAmount,
+      status: debt.status,
+      lateFees: debt.lateFees,
+    });
+
     const newPaidAmount = debt.paidAmount + amount;
     const remainingAmount = debt.currentAmount - newPaidAmount;
+
+    console.log("💰 Payment calculation:", {
+      paymentAmount: amount,
+      previousPaidAmount: debt.paidAmount,
+      newPaidAmount,
+      currentAmount: debt.currentAmount,
+      remainingAmount,
+    });
 
     let newStatus = debt.status;
     if (remainingAmount <= 0) {
       newStatus = "PAID";
+      console.log("✅ Setting status to PAID (remaining <= 0)");
     } else if (newPaidAmount > 0) {
       newStatus = "PARTIAL";
+      console.log("⚠️ Setting status to PARTIAL (partial payment)");
     }
 
-    return await prisma.outstandingDebt.update({
+    const updatedDebt = await db.outstandingDebt.update({
       where: { id: debtId },
       data: {
         paidAmount: newPaidAmount,
@@ -135,6 +157,16 @@ export class DebtManagementService {
         paymentReference,
       },
     });
+
+    console.log("📝 Recording payment - AFTER:", {
+      debtId,
+      currentAmount: updatedDebt.currentAmount,
+      paidAmount: updatedDebt.paidAmount,
+      status: updatedDebt.status,
+      remaining: updatedDebt.currentAmount - updatedDebt.paidAmount,
+    });
+
+    return updatedDebt;
   }
 
   /**
@@ -200,6 +232,11 @@ export class DebtManagementService {
   static async checkAndCreateDebtForNegativeBalance(userId: string) {
     console.log("🔍 Checking for negative balance for user:", userId);
 
+    // ==========================================
+    // INDUSTRY STANDARD BALANCE CALCULATION
+    // Same logic as getMyBalance
+    // ==========================================
+
     // Calculate current balance from transactions
     const transactions = await prisma.rewardTransaction.findMany({
       where: {
@@ -214,56 +251,35 @@ export class DebtManagementService {
 
     console.log("📊 Found transactions:", transactions.length);
 
-    // Also check citizen reports for backward compatibility (same as getMyBalance)
-    const citizenReports = await prisma.citizenReport.findMany({
-      where: {
-        citizenId: userId,
-        status: { in: ["APPROVED", "REJECTED"] },
-      },
-      select: {
-        status: true,
-        rewardAmount: true,
-        penaltyAmount: true,
-      },
-    });
-
-    console.log("📊 Found citizen reports:", citizenReports.length);
-
-    // Calculate from transactions
-    const transactionEarnings = transactions
+    // Calculate REWARDS (positive additions)
+    const totalRewards = transactions
       .filter((t) => t.type === "REWARD" || t.type === "BONUS")
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
-    const transactionPenalties = transactions
+    // Calculate PENALTIES (deductions)
+    const totalPenalties = transactions
       .filter((t) => t.type === "PENALTY" || t.type === "DEDUCTION")
       .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
-    // Calculate from citizen reports (backward compatibility)
-    const reportRewards = citizenReports
-      .filter((r) => r.status === "APPROVED")
-      .reduce((sum, r) => sum + (r.rewardAmount || 0), 0);
+    // Calculate DEBT PAYMENTS (already paid)
+    const totalDebtPayments = transactions
+      .filter((t) => t.type === "DEBT_PAYMENT")
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
-    const reportPenalties = citizenReports
-      .filter((r) => r.status === "REJECTED")
-      .reduce((sum, r) => sum + (r.penaltyAmount || 0), 0);
+    // Get outstanding debts
+    // NOTE: Do not subtract outstanding debt here to avoid double counting.
+    // Balance should reflect rewards vs penalties only.
+    const currentBalance = totalRewards - totalPenalties;
 
-    // Use the same logic as getMyBalance - take the maximum to avoid double counting
-    const totalEarned = Math.max(transactionEarnings, reportRewards);
-    const totalPenalties = Math.max(transactionPenalties, reportPenalties);
-
-    const currentBalance = totalEarned - totalPenalties;
-
-    console.log("💰 Balance calculation:", {
-      transactionEarnings,
-      transactionPenalties,
-      reportRewards,
-      reportPenalties,
-      totalEarned,
+    console.log("💰 Balance calculation for debt check:", {
+      totalRewards,
       totalPenalties,
+      totalDebtPayments,
       currentBalance,
+      formula: `${totalRewards} - ${totalPenalties} = ${currentBalance}`,
     });
 
-    // If balance is negative, create or update debt
+    // If balance is negative (after accounting for existing debts), create new debt
     if (currentBalance < 0) {
       console.log("⚠️ Negative balance detected:", currentBalance);
 

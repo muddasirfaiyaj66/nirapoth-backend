@@ -17,15 +17,29 @@ export const corsOptions = {
       return callback(null, true);
     }
 
+    // Some gateways/browsers send literal "null" as Origin
+    if (origin === "null") {
+      return callback(null, true);
+    }
+
     const allowedOrigins = [
       config.cors.origin,
+      process.env.FRONTEND_URL,
       "http://localhost:3000",
+      "http://127.0.0.1:3000",
       "http://localhost:3001",
+      "http://127.0.0.1:3001",
       "http://localhost:5173", // Vite default
       "http://localhost:4173", // Vite preview
-    ];
+      "http://localhost:5000",
+      "http://127.0.0.1:5000",
+      // SSLCommerz callback origins
+      "https://sandbox.sslcommerz.com",
+      "https://securepay.sslcommerz.com",
+    ].filter(Boolean) as string[];
 
-    if (allowedOrigins.includes(origin)) {
+    // Allow exact matches or any *.sslcommerz.com origin (gateway callbacks)
+    if (allowedOrigins.includes(origin) || origin.includes("sslcommerz.com")) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
@@ -160,7 +174,6 @@ export type UserRole =
   | "SUPER_ADMIN"
   | "ADMIN"
   | "POLICE"
-  | "DRIVER"
   | "FIRE_SERVICE"
   | "CITIZEN";
 
@@ -170,7 +183,6 @@ const ROLE_HIERARCHY: Record<UserRole, number> = {
   ADMIN: 80,
   POLICE: 60,
   FIRE_SERVICE: 50,
-  DRIVER: 40,
   CITIZEN: 20,
 };
 

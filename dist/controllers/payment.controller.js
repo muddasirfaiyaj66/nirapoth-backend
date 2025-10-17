@@ -1,18 +1,39 @@
-import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
-const prisma = new PrismaClient();
+import { sslCommerzService } from "../services/sslcommerz.service";
+import { prisma } from "../lib/prisma";
+// Simple in-memory cache for user payments (60 seconds TTL)
+const paymentCache = new Map();
+const CACHE_TTL = 60 * 1000; // 60 seconds
+function getCachedPayments(userId) {
+    const cached = paymentCache.get(userId);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        console.log(`✨ Using cached payments for user: ${userId}`);
+        return cached.data;
+    }
+    return null;
+}
+function setCachedPayments(userId, data) {
+    paymentCache.set(userId, { data, timestamp: Date.now() });
+}
+function clearCachedPayments(userId) {
+    paymentCache.delete(userId);
+}
 // Validation schemas
 const createPaymentSchema = z.object({
     fineId: z.string().uuid("Invalid fine ID"),
     amount: z.number().min(1, "Amount must be positive"),
-    paymentMethod: z.enum([
-        "CASH",
-        "CARD",
-        "BANK_TRANSFER",
-        "MOBILE_MONEY",
-        "ONLINE",
-    ]),
+    paymentMethod: z.enum(["CARD", "BANK_TRANSFER", "MOBILE_MONEY", "ONLINE"]),
     transactionId: z.string().optional(),
+});
+const initOnlinePaymentSchema = z
+    .object({
+    fineId: z.string().uuid("Invalid fine ID").optional(),
+    fineIds: z.array(z.string().uuid()).optional(),
+    debtId: z.string().uuid("Invalid debt ID").optional(),
+    amount: z.number().min(1, "Amount must be positive"),
+})
+    .refine((data) => data.fineId || (data.fineIds && data.fineIds.length > 0) || data.debtId, {
+    message: "Either fineId, fineIds, or debtId must be provided",
 });
 const updatePaymentStatusSchema = z.object({
     paymentId: z.string().uuid("Invalid payment ID"),
@@ -281,6 +302,8 @@ export class PaymentController {
                     },
                 },
             });
+            // Clear cache for this user
+            clearCachedPayments(userId);
             // Update fine status
             await prisma.fine.update({
                 where: { id: validatedData.fineId },
@@ -366,6 +389,8 @@ export class PaymentController {
                     },
                 },
             });
+            // Clear cache for this user
+            clearCachedPayments(updatedPayment.userId);
             // If payment is completed, update fine status
             if (validatedData.status === "COMPLETED") {
                 await prisma.fine.update({
@@ -416,15 +441,35 @@ export class PaymentController {
                 });
                 return;
             }
+            // Check cache first
+            const cachedPayments = getCachedPayments(userId);
+            if (cachedPayments) {
+                res.status(200).json({
+                    success: true,
+                    data: cachedPayments,
+                    statusCode: 200,
+                    cached: true,
+                });
+                return;
+            }
+            console.log(`🔍 Fetching payments from DB for user: ${userId}`);
+            const startTime = Date.now();
             const payments = await prisma.payment.findMany({
                 where: { userId },
-                orderBy: { paidAt: "desc" },
+                orderBy: { createdAt: "desc" }, // Changed from paidAt to createdAt for better performance
+                take: 100, // Limit to 100 most recent payments
                 include: {
                     fine: {
                         include: {
                             violation: {
                                 include: {
-                                    rule: true,
+                                    rule: {
+                                        select: {
+                                            id: true,
+                                            title: true,
+                                            description: true,
+                                        },
+                                    },
                                     vehicle: {
                                         select: {
                                             plateNo: true,
@@ -438,6 +483,17 @@ export class PaymentController {
                     },
                 },
             });
+            const endTime = Date.now();
+            console.log(`✅ Fetched ${payments.length} payments in ${endTime - startTime}ms`);
+            // Cache the results
+            setCachedPayments(userId, payments);
+            res.status(200).json({
+                success: true,
+                data: payments,
+                statusCode: 200,
+                cached: false,
+            });
+            console.log(`✅ Fetched ${payments.length} payments in ${endTime - startTime}ms`);
             res.status(200).json({
                 success: true,
                 data: payments,
@@ -558,6 +614,417 @@ export class PaymentController {
             res.status(500).json({
                 success: false,
                 message: "Internal server error",
+                statusCode: 500,
+            });
+        }
+    }
+    /**
+     * Initialize online payment with SSLCommerz
+     */
+    static async initOnlinePayment(req, res) {
+        try {
+            const validatedData = initOnlinePaymentSchema.parse(req.body);
+            const userId = req.user?.id;
+            if (!userId) {
+                res.status(401).json({
+                    success: false,
+                    message: "User not authenticated",
+                    statusCode: 401,
+                });
+                return;
+            }
+            // Use backend base URL for gateway callbacks
+            const baseURL = process.env.BACKEND_URL || "http://localhost:5000";
+            let result;
+            // Handle debt payment
+            if (validatedData.debtId) {
+                result = await sslCommerzService.createDebtPaymentSession(validatedData.debtId, userId, validatedData.amount, baseURL);
+            }
+            // Handle single fine payment
+            else if (validatedData.fineId) {
+                result = await sslCommerzService.createFinePaymentSession(validatedData.fineId, userId, validatedData.amount, baseURL);
+            }
+            // Handle multiple fines payment
+            else if (validatedData.fineIds) {
+                result = await sslCommerzService.createMultipleFinesPaymentSession(validatedData.fineIds, userId, baseURL);
+            }
+            if (result?.success) {
+                res.status(200).json({
+                    success: true,
+                    message: "Payment session created successfully",
+                    data: {
+                        gatewayPageURL: result.gatewayPageURL,
+                        sessionKey: result.sessionKey,
+                        transactionId: result.transactionId,
+                    },
+                    statusCode: 200,
+                });
+            }
+            else {
+                res.status(400).json({
+                    success: false,
+                    message: result?.message || "Failed to initialize payment",
+                    statusCode: 400,
+                });
+            }
+        }
+        catch (error) {
+            console.error("Error initializing online payment:", error);
+            if (error instanceof z.ZodError) {
+                res.status(400).json({
+                    success: false,
+                    message: "Validation error",
+                    errors: error.issues,
+                    statusCode: 400,
+                });
+            }
+            else {
+                res.status(500).json({
+                    success: false,
+                    message: "Internal server error",
+                    statusCode: 500,
+                });
+            }
+        }
+    }
+    /**
+     * Handle SSLCommerz success callback
+     */
+    static async handleSSLSuccess(req, res) {
+        try {
+            const result = await sslCommerzService.handleSuccessCallback(req.body);
+            if (result.success) {
+                // Redirect to frontend success page
+                const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
+                const url = new URL(`/payment/success`, frontendURL);
+                url.searchParams.set("transactionId", req.body.tran_id || "");
+                // Preserve context for debt payments
+                if (result.paymentType === "DEBT" && result.debt?.id) {
+                    url.searchParams.set("type", "debt");
+                    url.searchParams.set("debtId", result.debt.id);
+                }
+                res.redirect(url.toString());
+            }
+            else {
+                const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
+                const url = new URL(`/payment/failed`, frontendURL);
+                url.searchParams.set("message", result.message || "Payment failed");
+                res.redirect(url.toString());
+            }
+        }
+        catch (error) {
+            console.error("Error handling SSLCommerz success:", error);
+            const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
+            const url = new URL(`/payment/failed`, frontendURL);
+            url.searchParams.set("message", "Payment processing error");
+            res.redirect(url.toString());
+        }
+    }
+    /**
+     * Handle SSLCommerz fail callback
+     */
+    static async handleSSLFail(req, res) {
+        try {
+            await sslCommerzService.handleFailCallback(req.body);
+            const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
+            const url = new URL(`/payment/failed`, frontendURL);
+            url.searchParams.set("message", "Payment failed");
+            res.redirect(url.toString());
+        }
+        catch (error) {
+            console.error("Error handling SSLCommerz fail:", error);
+            const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
+            const url = new URL(`/payment/failed`, frontendURL);
+            url.searchParams.set("message", "Payment processing error");
+            res.redirect(url.toString());
+        }
+    }
+    /**
+     * Handle SSLCommerz cancel callback
+     */
+    static async handleSSLCancel(req, res) {
+        try {
+            await sslCommerzService.handleCancelCallback(req.body);
+            const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
+            const url = new URL(`/payment/cancelled`, frontendURL);
+            res.redirect(url.toString());
+        }
+        catch (error) {
+            console.error("Error handling SSLCommerz cancel:", error);
+            const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
+            const url = new URL(`/payment/cancelled`, frontendURL);
+            res.redirect(url.toString());
+        }
+    }
+    /**
+     * Handle SSLCommerz IPN (Instant Payment Notification) callback
+     */
+    static async handleSSLIPN(req, res) {
+        try {
+            const result = await sslCommerzService.handleSuccessCallback(req.body);
+            if (result.success) {
+                res.status(200).json({
+                    success: true,
+                    message: "IPN processed successfully",
+                });
+            }
+            else {
+                res.status(400).json({
+                    success: false,
+                    message: result.message,
+                });
+            }
+        }
+        catch (error) {
+            console.error("Error handling SSLCommerz IPN:", error);
+            res.status(500).json({
+                success: false,
+                message: "IPN processing error",
+            });
+        }
+    }
+    /**
+     * Query transaction status
+     */
+    static async queryTransaction(req, res) {
+        try {
+            const { transactionId } = req.params;
+            const result = await sslCommerzService.queryTransaction(transactionId);
+            res.status(200).json({
+                success: true,
+                data: result.data,
+                statusCode: 200,
+            });
+        }
+        catch (error) {
+            console.error("Error querying transaction:", error);
+            res.status(500).json({
+                success: false,
+                message: "Internal server error",
+                statusCode: 500,
+            });
+        }
+    }
+    /**
+     * Verify a transaction against our database (authoritative)
+     * @route GET /api/payments/verify/:transactionId
+     */
+    static async verifyTransaction(req, res) {
+        try {
+            const { transactionId } = req.params;
+            const userId = req.user?.id;
+            if (!userId) {
+                res.status(401).json({
+                    success: false,
+                    message: "User not authenticated",
+                    statusCode: 401,
+                });
+                return;
+            }
+            // Find payment for this user by merchant transaction id
+            const payment = await prisma.payment.findFirst({
+                where: {
+                    transactionId,
+                    userId,
+                },
+                include: {
+                    fine: true,
+                },
+            });
+            if (!payment) {
+                res.status(200).json({
+                    success: true,
+                    data: { verified: false, reason: "NOT_FOUND" },
+                    statusCode: 200,
+                });
+                return;
+            }
+            const paymentStatus = payment.paymentStatus;
+            const fineStatus = payment.fine?.status;
+            const verified = paymentStatus === "COMPLETED" || fineStatus === "PAID";
+            res.status(200).json({
+                success: true,
+                data: {
+                    verified,
+                    paymentStatus,
+                    fineStatus: fineStatus || null,
+                },
+                statusCode: 200,
+            });
+        }
+        catch (error) {
+            console.error("Error verifying transaction:", error);
+            res.status(500).json({
+                success: false,
+                message: "Internal server error",
+                statusCode: 500,
+            });
+        }
+    }
+    /**
+     * Initiate refund
+     */
+    static async initiateRefund(req, res) {
+        try {
+            const { paymentId } = req.params;
+            const { refundAmount, refundRemarks } = req.body;
+            // Find payment
+            const payment = await prisma.payment.findUnique({
+                where: { id: paymentId },
+            });
+            if (!payment) {
+                res.status(404).json({
+                    success: false,
+                    message: "Payment not found",
+                    statusCode: 404,
+                });
+                return;
+            }
+            if (payment.paymentStatus !== "COMPLETED") {
+                res.status(400).json({
+                    success: false,
+                    message: "Can only refund completed payments",
+                    statusCode: 400,
+                });
+                return;
+            }
+            if (!payment.transactionId) {
+                res.status(400).json({
+                    success: false,
+                    message: "Transaction ID not found",
+                    statusCode: 400,
+                });
+                return;
+            }
+            const result = await sslCommerzService.initiateRefund(payment.transactionId, refundAmount || payment.amount, refundRemarks || "Refund requested");
+            if (result.success) {
+                // Update payment status
+                await prisma.payment.update({
+                    where: { id: paymentId },
+                    data: {
+                        paymentStatus: "REFUNDED",
+                    },
+                });
+                res.status(200).json({
+                    success: true,
+                    message: "Refund initiated successfully",
+                    data: result.data,
+                    statusCode: 200,
+                });
+            }
+            else {
+                res.status(400).json({
+                    success: false,
+                    message: result.message,
+                    statusCode: 400,
+                });
+            }
+        }
+        catch (error) {
+            console.error("Error initiating refund:", error);
+            res.status(500).json({
+                success: false,
+                message: "Internal server error",
+                statusCode: 500,
+            });
+        }
+    }
+    /**
+     * Process debt payment after SSLCommerz success callback
+     * Called from frontend payment callback route
+     */
+    static async processDebtPayment(req, res) {
+        try {
+            const { debtId, transactionId, amount, valId } = req.body;
+            console.log("💳 Processing debt payment:", {
+                debtId,
+                transactionId,
+                amount,
+                valId,
+            });
+            if (!debtId || !transactionId) {
+                res.status(400).json({
+                    success: false,
+                    message: "Missing required fields: debtId, transactionId",
+                    statusCode: 400,
+                });
+                return;
+            }
+            // Import debt management service
+            const { DebtManagementService } = await import("../services/debtManagement.service");
+            // Get the debt
+            const debt = await DebtManagementService.getDebtById(debtId);
+            if (!debt) {
+                res.status(404).json({
+                    success: false,
+                    message: "Debt not found",
+                    statusCode: 404,
+                });
+                return;
+            }
+            // Check if debt is already paid
+            if (debt.status === "PAID") {
+                console.log("⚠️ Debt already paid, skipping processing");
+                res.status(200).json({
+                    success: true,
+                    message: "Debt already paid",
+                    data: debt,
+                    statusCode: 200,
+                });
+                return;
+            }
+            // Calculate payment amount - use provided amount or remaining debt amount
+            const remainingDebt = debt.currentAmount - debt.paidAmount;
+            const paymentAmount = amount ? parseFloat(amount) : remainingDebt;
+            console.log("💰 Payment calculation:", {
+                providedAmount: amount,
+                remainingDebt,
+                paymentAmount,
+            });
+            // Record the payment
+            const updatedDebt = await DebtManagementService.recordPayment(debtId, paymentAmount, transactionId);
+            console.log("✅ Debt payment recorded successfully:", {
+                debtId: updatedDebt.id,
+                status: updatedDebt.status,
+                paidAmount: updatedDebt.paidAmount,
+                currentAmount: updatedDebt.currentAmount,
+            });
+            // Create a DEBT_PAYMENT transaction to record the payment
+            // This is separate from rewards - it's a payment that reduces debt
+            await prisma.rewardTransaction.create({
+                data: {
+                    userId: debt.userId,
+                    amount: paymentAmount, // Positive value (industry standard)
+                    type: "DEBT_PAYMENT",
+                    source: "DEBT_PAYMENT",
+                    status: "COMPLETED",
+                    description: `Debt payment - ${transactionId}`,
+                },
+            });
+            console.log("💰 Created debt payment transaction:", {
+                amount: paymentAmount,
+                type: "DEBT_PAYMENT",
+                transactionId,
+            });
+            // If debt is now fully paid, check if there are any remaining balance issues
+            if (updatedDebt.status === "PAID") {
+                console.log("✅ Debt fully paid, checking for any remaining balance issues");
+                // This will recalculate and create new debt only if balance is still negative
+                // But now the balance should be positive because we added the reward transaction
+                await DebtManagementService.checkAndCreateDebtForNegativeBalance(debt.userId);
+            }
+            res.status(200).json({
+                success: true,
+                message: "Debt payment processed successfully",
+                data: updatedDebt,
+                statusCode: 200,
+            });
+        }
+        catch (error) {
+            console.error("❌ Error processing debt payment:", error);
+            res.status(500).json({
+                success: false,
+                message: error.message || "Internal server error",
                 statusCode: 500,
             });
         }

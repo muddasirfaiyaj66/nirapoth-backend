@@ -55,7 +55,6 @@ enum FineStatus {
 }
 
 enum PaymentMethod {
-  CASH
   CARD
   BANK_TRANSFER
   MOBILE_MONEY
@@ -155,17 +154,19 @@ enum ViolationType {
 }
 
 enum TransactionType {
-  REWARD
-  PENALTY
-  BONUS
-  DEDUCTION
+  REWARD          // Earnings from approved reports
+  PENALTY         // Deductions from rejected reports
+  BONUS           // System bonuses
+  DEDUCTION       // System deductions
+  DEBT_PAYMENT    // Payment made towards outstanding debt
 }
 
 enum TransactionSource {
-  CITIZEN_REPORT
-  VIOLATION
-  FINE_PAYMENT
-  SYSTEM
+  CITIZEN_REPORT  // From citizen report approval/rejection
+  VIOLATION       // From traffic violation
+  FINE_PAYMENT    // From fine payment
+  DEBT_PAYMENT    // From debt payment
+  SYSTEM          // System generated
 }
 
 enum TransactionStatus {
@@ -311,12 +312,14 @@ model User {
   presentCity       String?
   presentDistrict   String?
   presentDivision   String?
+  presentUpazila    String?
   presentPostalCode String?
 
   permanentAddress    String?
   permanentCity       String?
   permanentDistrict   String?
   permanentDivision   String?
+  permanentUpazila    String?
   permanentPostalCode String?
 
   // Driving License Information
@@ -505,7 +508,8 @@ model Vehicle {
   color          String? // Vehicle color
   engineNo       String      @unique // Engine number - required field
   chassisNo      String      @unique // Chassis number - required field
-  registrationNo String?     @unique // Registration number - optional separate from plate
+  registrationNo String?     @unique // Tax Token number - optional separate from plate
+  registrationDate DateTime? // Vehicle registration date from authorities
 
   ownerId  String
   owner    User    @relation("OwnerVehicles", fields: [ownerId], references: [id])
@@ -513,7 +517,7 @@ model Vehicle {
   driver   User?   @relation("DriverVehicles", fields: [driverId], references: [id])
 
   registeredAt DateTime  @default(now())
-  expiresAt    DateTime? // Registration expiry date
+  expiresAt    DateTime? // Tax token expiry date
   isDeleted    Boolean   @default(false)
   isActive     Boolean   @default(true)
 
@@ -764,6 +768,13 @@ model DrivingLicense {
   restrictions String? // JSON array of restrictions ["NO_NIGHT_DRIVING", "CORRECTIVE_LENSES"]
   endorsements String? // JSON array of endorsements ["MOTORCYCLE", "MANUAL_TRANSMISSION"]
 
+  // Gem System (Bangladesh driving license scoring)
+  gems Int @default(10) // Default 10 gems on license creation
+  isBlacklisted Boolean @default(false) // Becomes true when gems reach 0
+  blacklistedAt DateTime?
+  blacklistReason String? // Reason for blacklist
+  blacklistPenaltyPaid Boolean @default(false) // ৳5000 penalty payment status
+  
   // Violation tracking
   violationCount   Int       @default(0)
   lastViolationAt  DateTime?
@@ -783,6 +794,8 @@ model DrivingLicense {
   @@index([isActive])
   @@index([isVerified])
   @@index([expiryDate])
+  @@index([isBlacklisted])
+  @@index([gems])
   @@map("driving_licenses")
 }
 
@@ -887,7 +900,7 @@ model OutstandingDebt {
   userId            String
   user              User      @relation("UserDebts", fields: [userId], references: [id])
   
-  originalAmount    Float     // Original debt amount (negative balance at creation)
+  originalAmount    Float     // Original debt amount
   currentAmount     Float     // Current amount owed (includes late fees)
   lateFees          Float     @default(0) // Accumulated late payment fees
   
@@ -962,4 +975,59 @@ model Notification {
   @@index([createdAt])
   @@index([userId, isRead])
   @@map("notifications")
+}
+
+// Bangladesh Geographical Data Models
+model Division {
+  id        String   @id // Using API's id (1-8)
+  name      String   @unique // English name
+  bn_name   String   @unique // Bengali name
+  url       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  districts District[]
+
+  @@index([name])
+  @@index([bn_name])
+  @@map("divisions")
+}
+
+model District {
+  id          String   @id // Using API's id
+  divisionId  String   @map("division_id")
+  name        String   // English name
+  bn_name     String   // Bengali name
+  lat         String?  // Latitude
+  lon         String?  // Longitude
+  url         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  division Division   @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  upazilas Upazila[]
+
+  @@unique([divisionId, name])
+  @@index([name])
+  @@index([bn_name])
+  @@index([divisionId])
+  @@map("districts")
+}
+
+model Upazila {
+  id         String   @id // Using API's id
+  districtId String   @map("district_id")
+  name       String   // English name
+  bn_name    String   // Bengali name
+  url        String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  district District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+
+  @@unique([districtId, name])
+  @@index([name])
+  @@index([bn_name])
+  @@index([districtId])
+  @@map("upazilas")
 }

@@ -6,7 +6,19 @@ import { UserRole } from "@prisma/client";
 
 const router = Router();
 
-// All routes require authentication
+// SSLCommerz callback routes (public - no authentication required)
+router.post("/sslcommerz/success", PaymentController.handleSSLSuccess);
+router.get("/sslcommerz/success", PaymentController.handleSSLSuccess);
+router.post("/sslcommerz/fail", PaymentController.handleSSLFail);
+router.get("/sslcommerz/fail", PaymentController.handleSSLFail);
+router.post("/sslcommerz/cancel", PaymentController.handleSSLCancel);
+router.get("/sslcommerz/cancel", PaymentController.handleSSLCancel);
+router.post("/sslcommerz/ipn", PaymentController.handleSSLIPN);
+
+// Debt payment processing (public - called from frontend callback)
+router.post("/process-debt-payment", PaymentController.processDebtPayment);
+
+// All other routes require authentication
 router.use(authenticateToken);
 
 /**
@@ -58,6 +70,32 @@ router.get("/:paymentId", PaymentController.getPaymentById);
  * @access Private
  */
 router.post("/", PaymentController.createPayment);
+
+/**
+ * @route POST /api/payments/init-online
+ * @desc Initialize online payment with SSLCommerz
+ * @access Private
+ */
+router.post("/init-online", PaymentController.initOnlinePayment);
+
+/**
+ * @route GET /api/payments/transaction/:transactionId
+ * @desc Query transaction status
+ * @access Private
+ */
+router.get("/transaction/:transactionId", PaymentController.queryTransaction);
+router.get("/verify/:transactionId", PaymentController.verifyTransaction);
+
+/**
+ * @route POST /api/payments/:paymentId/refund
+ * @desc Initiate refund for a payment
+ * @access Private (Admin/Police)
+ */
+router.post(
+  "/:paymentId/refund",
+  roleMiddleware([UserRole.ADMIN, UserRole.POLICE]),
+  PaymentController.initiateRefund
+);
 
 /**
  * @route PUT /api/payments/status

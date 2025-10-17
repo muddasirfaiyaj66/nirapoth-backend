@@ -2,51 +2,69 @@ import { z } from "zod";
 import { UserRole } from "@prisma/client";
 
 // User registration validation schema
-export const registerSchema = z.object({
-  firstName: z
-    .string()
-    .min(2, "First name must be at least 2 characters long")
-    .max(50, "First name must not exceed 50 characters")
-    .regex(/^[a-zA-Z\s]+$/, "First name can only contain letters and spaces"),
+export const registerSchema = z
+  .object({
+    firstName: z
+      .string()
+      .min(2, "First name must be at least 2 characters long")
+      .max(50, "First name must not exceed 50 characters")
+      .regex(/^[a-zA-Z\s]+$/, "First name can only contain letters and spaces"),
 
-  lastName: z
-    .string()
-    .min(2, "Last name must be at least 2 characters long")
-    .max(50, "Last name must not exceed 50 characters")
-    .regex(/^[a-zA-Z\s]+$/, "Last name can only contain letters and spaces"),
+    lastName: z
+      .string()
+      .min(2, "Last name must be at least 2 characters long")
+      .max(50, "Last name must not exceed 50 characters")
+      .regex(/^[a-zA-Z\s]+$/, "Last name can only contain letters and spaces"),
 
-  email: z
-    .string()
-    .email("Please provide a valid email address")
-    .max(100, "Email must not exceed 100 characters"),
+    email: z
+      .string()
+      .email("Please provide a valid email address")
+      .max(100, "Email must not exceed 100 characters"),
 
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters long")
-    .max(128, "Password must not exceed 128 characters")
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
-      "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"
-    ),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters long")
+      .max(128, "Password must not exceed 128 characters")
+      .regex(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+        "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"
+      ),
 
-  phone: z
-    .string()
-    .regex(/^[0-9+\-\s()]+$/, "Please provide a valid phone number")
-    .min(10, "Phone number must be at least 10 characters")
-    .max(20, "Phone number must not exceed 20 characters"),
+    phone: z
+      .string()
+      .regex(/^[0-9+\-\s()]+$/, "Please provide a valid phone number")
+      .min(10, "Phone number must be at least 10 characters")
+      .max(20, "Phone number must not exceed 20 characters"),
 
-  nidNo: z
-    .string()
-    .regex(/^\d{10}$|^\d{17}$/, "NID must be either 10 or 17 digits")
-    .optional(),
+    nidNo: z
+      .string()
+      .regex(/^\d{10}$|^\d{17}$/, "NID must be either 10 or 17 digits")
+      .optional()
+      .or(z.literal("")), // Allow empty string from frontend
 
-  birthCertificateNo: z
-    .string()
-    .regex(/^\d{17}$/, "Birth Certificate Number must be 17 digits")
-    .optional(),
+    birthCertificateNo: z
+      .string()
+      .regex(/^\d{17}$/, "Birth Certificate Number must be 17 digits")
+      .optional()
+      .or(z.literal("")), // Allow empty string from frontend
 
-  role: z.nativeEnum(UserRole).optional().default(UserRole.CITIZEN),
-});
+    role: z.nativeEnum(UserRole).optional().default(UserRole.CITIZEN),
+  })
+  .strip() // Strip unknown fields like confirmPassword from frontend
+  .refine(
+    (data) => {
+      // Check if at least one valid ID is provided
+      const nidValid = data.nidNo && /^\d{10}$|^\d{17}$/.test(data.nidNo);
+      const bcnValid =
+        data.birthCertificateNo && /^\d{17}$/.test(data.birthCertificateNo);
+      return nidValid || bcnValid;
+    },
+    {
+      message:
+        "Either a valid NID (10 or 17 digits) or Birth Certificate Number (17 digits) is required",
+      path: ["nidNo"],
+    }
+  );
 
 // User login validation schema
 export const loginSchema = z.object({
@@ -135,6 +153,7 @@ export const updateProfileSchema = z.object({
     .regex(/^[0-9+\-\s()]+$/, "Please provide a valid phone number")
     .min(10, "Phone number must be at least 10 characters")
     .max(20, "Phone number must not exceed 20 characters")
+    .or(z.literal(""))
     .optional(),
 
   emergencyContact: z.string().optional(),
@@ -144,6 +163,7 @@ export const updateProfileSchema = z.object({
     .regex(/^[0-9+\-\s()]+$/, "Please provide a valid phone number")
     .min(10, "Phone number must be at least 10 characters")
     .max(20, "Phone number must not exceed 20 characters")
+    .or(z.literal(""))
     .optional(),
 
   // Present Address
@@ -151,6 +171,7 @@ export const updateProfileSchema = z.object({
   presentCity: z.string().optional(),
   presentDistrict: z.string().optional(),
   presentDivision: z.string().optional(),
+  presentUpazila: z.string().optional(),
   presentPostalCode: z.string().optional(),
 
   // Permanent Address
@@ -158,6 +179,7 @@ export const updateProfileSchema = z.object({
   permanentCity: z.string().optional(),
   permanentDistrict: z.string().optional(),
   permanentDivision: z.string().optional(),
+  permanentUpazila: z.string().optional(),
   permanentPostalCode: z.string().optional(),
 
   // Professional Information (for police/fire service)

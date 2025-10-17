@@ -1,1073 +1,355 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
-export class CitizenController {
-    /**
-     * Get citizen's vehicles
-     * @route GET /api/citizen/vehicles
-     */
-    static async getMyVehicles(req, res) {
-        try {
-            const userId = req.user?.userId;
-            if (!userId) {
-                res.status(401).json({
-                    success: false,
-                    message: "Unauthorized",
-                });
-                return;
-            }
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 10;
-            const search = req.query.search;
-            const skip = (page - 1) * limit;
-            const where = {
-                ownerId: userId,
-                isActive: true,
-                isDeleted: false,
-            };
-            if (search) {
-                where.OR = [
-                    { plateNo: { contains: search, mode: "insensitive" } },
-                    { brand: { contains: search, mode: "insensitive" } },
-                    { model: { contains: search, mode: "insensitive" } },
-                ];
-            }
-            const [vehicles, total] = await Promise.all([
-                prisma.vehicle.findMany({
-                    where,
-                    skip,
-                    take: limit,
-                    orderBy: { createdAt: "desc" },
+import { prisma } from "../lib/prisma";
+/**
+ * Get citizen dashboard statistics
+ * @route GET /api/citizen/stats
+ */
+export const getCitizenStats = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "User not authenticated",
+                statusCode: 401,
+            });
+        }
+        // Get vehicles count
+        const [totalVehicles, activeVehicles] = await Promise.all([
+            prisma.vehicle.count({
+                where: { ownerId: userId },
+            }),
+            prisma.vehicle.count({
+                where: { ownerId: userId, isActive: true },
+            }),
+        ]);
+        // Get violations count (violations related to user's vehicles)
+        const [totalViolations, pendingViolations] = await Promise.all([
+            prisma.violation.count({
+                where: {
+                    vehicle: { ownerId: userId },
+                },
+            }),
+            prisma.violation.count({
+                where: {
+                    vehicle: { ownerId: userId },
+                    status: { in: ["PENDING", "UNDER_REVIEW"] },
+                },
+            }),
+        ]);
+        // Get fines statistics (fines on user's vehicles)
+        const fines = await prisma.fine.aggregate({
+            where: {
+                violation: {
+                    vehicle: { ownerId: userId },
+                },
+            },
+            _sum: { amount: true },
+            _count: true,
+        });
+        const paidFines = await prisma.fine.aggregate({
+            where: {
+                violation: {
+                    vehicle: { ownerId: userId },
+                },
+                status: "PAID",
+            },
+            _sum: { amount: true },
+        });
+        // Get submitted complaints/reports
+        const [submittedComplaints, resolvedComplaints] = await Promise.all([
+            prisma.citizenReport.count({
+                where: { citizenId: userId },
+            }),
+            prisma.citizenReport.count({
+                where: { citizenId: userId, status: "APPROVED" },
+            }),
+        ]);
+        // Get reward balance (only positive rewards, not penalties)
+        const rewardTransactions = await prisma.rewardTransaction.findMany({
+            where: {
+                userId,
+                status: "COMPLETED",
+            },
+            select: {
+                amount: true,
+                type: true,
+            },
+        });
+        // Calculate actual rewards (positive only from REWARD and BONUS types)
+        const totalRewards = rewardTransactions
+            .filter((t) => t.type === "REWARD" || t.type === "BONUS")
+            .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        // Get recent violations (last 5 fines on user's vehicles)
+        const recentViolations = await prisma.fine.findMany({
+            where: {
+                violation: {
+                    vehicle: { ownerId: userId },
+                },
+            },
+            include: {
+                violation: {
                     include: {
-                        assignments: {
-                            where: { isActive: true },
-                            include: {
-                                citizen: {
-                                    select: {
-                                        id: true,
-                                        firstName: true,
-                                        lastName: true,
-                                        email: true,
-                                    },
-                                },
+                        rule: {
+                            select: {
+                                title: true,
                             },
                         },
-                    },
-                }),
-                prisma.vehicle.count({ where }),
-            ]);
-            res.json({
-                success: true,
-                data: {
-                    vehicles: vehicles.map((v) => ({
-                        id: v.id,
-                        licensePlate: v.plateNo,
-                        make: v.brand,
-                        model: v.model,
-                        year: v.year,
-                        type: v.type,
-                        color: v.color || "",
-                        status: v.isActive ? "active" : "inactive",
-                        registrationDate: v.registeredAt,
-                        ownerId: v.ownerId,
-                    })),
-                    pagination: {
-                        page,
-                        limit,
-                        total,
-                        pages: Math.ceil(total / limit),
-                    },
-                },
-            });
-        }
-        catch (error) {
-            console.error("Error fetching user vehicles:", error);
-            res.status(500).json({
-                success: false,
-                message: "Failed to fetch vehicles",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
-    }
-    /**
-     * Register a new vehicle for the citizen
-     * @route POST /api/citizen/vehicles
-     */
-    static async registerVehicle(req, res) {
-        try {
-            const userId = req.user?.userId;
-            const { licensePlate, make, model, year, type, color } = req.body;
-            if (!userId) {
-                res.status(401).json({
-                    success: false,
-                    message: "Unauthorized",
-                });
-                return;
-            }
-            // Check if vehicle with same plate number already exists
-            const existingVehicle = await prisma.vehicle.findUnique({
-                where: { plateNo: licensePlate },
-            });
-            if (existingVehicle) {
-                res.status(400).json({
-                    success: false,
-                    message: "Vehicle with this license plate already exists",
-                });
-                return;
-            }
-            const vehicle = await prisma.vehicle.create({
-                data: {
-                    plateNo: licensePlate,
-                    brand: make,
-                    model,
-                    year: parseInt(year),
-                    type,
-                    color,
-                    engineNo: `ENG-${Date.now()}`, // Generate temporary engine number
-                    chassisNo: `CHS-${Date.now()}`, // Generate temporary chassis number
-                    ownerId: userId,
-                    registeredAt: new Date(),
-                    isActive: true,
-                },
-            });
-            res.status(201).json({
-                success: true,
-                message: "Vehicle registered successfully",
-                data: {
-                    id: vehicle.id,
-                    licensePlate: vehicle.plateNo,
-                    make: vehicle.brand,
-                    model: vehicle.model,
-                    year: vehicle.year,
-                    type: vehicle.type,
-                    color: vehicle.color || "",
-                    status: "active",
-                    registrationDate: vehicle.registeredAt,
-                    ownerId: vehicle.ownerId,
-                },
-            });
-        }
-        catch (error) {
-            console.error("Error registering vehicle:", error);
-            res.status(500).json({
-                success: false,
-                message: "Failed to register vehicle",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
-    }
-    /**
-     * Update citizen's vehicle
-     * @route PUT /api/citizen/vehicles/:vehicleId
-     */
-    static async updateVehicle(req, res) {
-        try {
-            const userId = req.user?.userId;
-            const { vehicleId } = req.params;
-            const updates = req.body;
-            if (!userId) {
-                res.status(401).json({
-                    success: false,
-                    message: "Unauthorized",
-                });
-                return;
-            }
-            // Check if vehicle belongs to user
-            const vehicle = await prisma.vehicle.findFirst({
-                where: {
-                    id: vehicleId,
-                    ownerId: userId,
-                },
-            });
-            if (!vehicle) {
-                res.status(404).json({
-                    success: false,
-                    message: "Vehicle not found or you don't have permission",
-                });
-                return;
-            }
-            const updatedVehicle = await prisma.vehicle.update({
-                where: { id: vehicleId },
-                data: {
-                    brand: updates.make || vehicle.brand,
-                    model: updates.model || vehicle.model,
-                    year: updates.year ? parseInt(updates.year) : vehicle.year,
-                    color: updates.color || vehicle.color,
-                    type: updates.type || vehicle.type,
-                },
-            });
-            res.json({
-                success: true,
-                message: "Vehicle updated successfully",
-                data: {
-                    id: updatedVehicle.id,
-                    licensePlate: updatedVehicle.plateNo,
-                    make: updatedVehicle.brand,
-                    model: updatedVehicle.model,
-                    year: updatedVehicle.year,
-                    type: updatedVehicle.type,
-                    color: updatedVehicle.color || "",
-                    status: updatedVehicle.isActive ? "active" : "inactive",
-                    registrationDate: updatedVehicle.registeredAt,
-                    ownerId: updatedVehicle.ownerId,
-                },
-            });
-        }
-        catch (error) {
-            console.error("Error updating vehicle:", error);
-            res.status(500).json({
-                success: false,
-                message: "Failed to update vehicle",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
-    }
-    /**
-     * Delete citizen's vehicle
-     * @route DELETE /api/citizen/vehicles/:vehicleId
-     */
-    static async deleteVehicle(req, res) {
-        try {
-            const userId = req.user?.userId;
-            const { vehicleId } = req.params;
-            if (!userId) {
-                res.status(401).json({
-                    success: false,
-                    message: "Unauthorized",
-                });
-                return;
-            }
-            // Check if vehicle belongs to user
-            const vehicle = await prisma.vehicle.findFirst({
-                where: {
-                    id: vehicleId,
-                    ownerId: userId,
-                },
-            });
-            if (!vehicle) {
-                res.status(404).json({
-                    success: false,
-                    message: "Vehicle not found or you don't have permission",
-                });
-                return;
-            }
-            // Soft delete
-            await prisma.vehicle.update({
-                where: { id: vehicleId },
-                data: {
-                    isDeleted: true,
-                    isActive: false,
-                },
-            });
-            res.json({
-                success: true,
-                message: "Vehicle deleted successfully",
-            });
-        }
-        catch (error) {
-            console.error("Error deleting vehicle:", error);
-            res.status(500).json({
-                success: false,
-                message: "Failed to delete vehicle",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
-    }
-    /**
-     * Get citizen's violations
-     * @route GET /api/citizen/violations
-     */
-    static async getMyViolations(req, res) {
-        try {
-            const userId = req.user?.userId;
-            if (!userId) {
-                res.status(401).json({
-                    success: false,
-                    message: "Unauthorized",
-                });
-                return;
-            }
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 10;
-            const status = req.query.status;
-            const search = req.query.search;
-            const skip = (page - 1) * limit;
-            // Get user's vehicles first
-            const userVehicles = await prisma.vehicle.findMany({
-                where: { ownerId: userId },
-                select: { id: true },
-            });
-            const vehicleIds = userVehicles.map((v) => v.id);
-            const where = {
-                vehicleId: { in: vehicleIds },
-            };
-            if (status && status !== "all") {
-                where.status = status;
-            }
-            if (search) {
-                where.OR = [
-                    { description: { contains: search, mode: "insensitive" } },
-                    {
-                        vehicle: {
-                            plateNo: { contains: search, mode: "insensitive" },
-                        },
-                    },
-                ];
-            }
-            const [violations, total] = await Promise.all([
-                prisma.violation.findMany({
-                    where,
-                    skip,
-                    take: limit,
-                    orderBy: { createdAt: "desc" },
-                    include: {
-                        rule: true,
                         vehicle: {
                             select: {
-                                id: true,
                                 plateNo: true,
-                                brand: true,
-                                model: true,
                             },
                         },
-                        location: true,
-                        fine: true,
-                    },
-                }),
-                prisma.violation.count({ where }),
-            ]);
-            res.json({
-                success: true,
-                data: {
-                    violations: violations.map((v) => ({
-                        id: v.id,
-                        type: v.rule?.title || "Unknown",
-                        description: v.description || "",
-                        vehicleId: v.vehicleId,
-                        vehicle: {
-                            licensePlate: v.vehicle?.plateNo || "",
-                        },
-                        location: v.location
-                            ? {
-                                latitude: v.location.latitude,
-                                longitude: v.location.longitude,
-                                address: v.location.address || "",
-                            }
-                            : { latitude: 0, longitude: 0, address: "" },
-                        fineAmount: v.fine?.amount || v.rule?.penalty || 0,
-                        status: v.status.toLowerCase(),
-                        violationDate: v.createdAt,
-                        createdAt: v.createdAt,
-                    })),
-                    pagination: {
-                        page,
-                        limit,
-                        total,
-                        pages: Math.ceil(total / limit),
                     },
                 },
-            });
-        }
-        catch (error) {
-            console.error("Error fetching user violations:", error);
-            res.status(500).json({
-                success: false,
-                message: "Failed to fetch violations",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
+            },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+        });
+        // Get user vehicles (last 5)
+        const myVehicles = await prisma.vehicle.findMany({
+            where: { ownerId: userId },
+            select: {
+                id: true,
+                plateNo: true,
+                brand: true,
+                model: true,
+                year: true,
+                isActive: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+        });
+        const stats = {
+            totalVehicles,
+            activeVehicles,
+            totalViolations,
+            pendingViolations,
+            totalFines: fines._sum.amount || 0,
+            paidFines: paidFines._sum.amount || 0,
+            unpaidFines: (fines._sum.amount || 0) - (paidFines._sum.amount || 0),
+            submittedComplaints,
+            resolvedComplaints,
+            totalRewards, // Only actual earned rewards
+            recentViolations: recentViolations.map((fine) => ({
+                id: fine.id,
+                plateNo: fine.violation?.vehicle?.plateNo || "Unknown",
+                violation: fine.violation?.rule?.title || "Unknown",
+                fineAmount: fine.amount,
+                date: fine.createdAt,
+                status: fine.status,
+                fineId: fine.id,
+            })),
+            myVehicles: myVehicles.map((v) => ({
+                id: v.id,
+                plateNo: v.plateNo,
+                brand: v.brand || "Unknown",
+                model: v.model || "Unknown",
+                year: v.year,
+                isActive: v.isActive,
+            })),
+        };
+        return res.status(200).json({
+            success: true,
+            data: stats,
+            statusCode: 200,
+        });
     }
-    /**
-     * Get violation by ID (only if it belongs to user's vehicle)
-     * @route GET /api/citizen/violations/:violationId
-     */
-    static async getViolationById(req, res) {
-        try {
-            const userId = req.user?.userId;
-            const { violationId } = req.params;
-            if (!userId) {
-                res.status(401).json({
-                    success: false,
-                    message: "Unauthorized",
-                });
-                return;
-            }
-            // Get user's vehicles
-            const userVehicles = await prisma.vehicle.findMany({
-                where: { ownerId: userId },
-                select: { id: true },
-            });
-            const vehicleIds = userVehicles.map((v) => v.id);
-            const violation = await prisma.violation.findFirst({
-                where: {
-                    id: violationId,
-                    vehicleId: { in: vehicleIds },
-                },
-                include: {
-                    rule: true,
-                    vehicle: true,
-                    location: true,
-                    fine: true,
-                },
-            });
-            if (!violation) {
-                res.status(404).json({
-                    success: false,
-                    message: "Violation not found",
-                });
-                return;
-            }
-            res.json({
-                success: true,
-                data: {
-                    id: violation.id,
-                    type: violation.rule?.title || "Unknown",
-                    description: violation.description || "",
-                    vehicleId: violation.vehicleId,
-                    vehicle: {
-                        licensePlate: violation.vehicle?.plateNo || "",
-                    },
-                    location: violation.location
-                        ? {
-                            latitude: violation.location.latitude,
-                            longitude: violation.location.longitude,
-                            address: violation.location.address || "",
-                        }
-                        : { latitude: 0, longitude: 0, address: "" },
-                    fineAmount: violation.fine?.amount || violation.rule?.penalty || 0,
-                    status: violation.status.toLowerCase(),
-                    violationDate: violation.createdAt,
-                    createdAt: violation.createdAt,
-                },
-            });
-        }
-        catch (error) {
-            console.error("Error fetching violation:", error);
-            res.status(500).json({
-                success: false,
-                message: "Failed to fetch violation",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
+    catch (error) {
+        console.error("Error fetching citizen stats:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch statistics",
+            statusCode: 500,
+        });
     }
-    /**
-     * Appeal a violation
-     * @route POST /api/citizen/violations/:violationId/appeal
-     */
-    static async appealViolation(req, res) {
-        try {
-            const userId = req.user?.userId;
-            const { violationId } = req.params;
-            const { reason } = req.body;
-            if (!userId) {
-                res.status(401).json({
-                    success: false,
-                    message: "Unauthorized",
-                });
-                return;
-            }
-            // Get user's vehicles
-            const userVehicles = await prisma.vehicle.findMany({
-                where: { ownerId: userId },
-                select: { id: true },
-            });
-            const vehicleIds = userVehicles.map((v) => v.id);
-            // Check if violation belongs to user's vehicle
-            const violation = await prisma.violation.findFirst({
-                where: {
-                    id: violationId,
-                    vehicleId: { in: vehicleIds },
-                },
-            });
-            if (!violation) {
-                res.status(404).json({
-                    success: false,
-                    message: "Violation not found",
-                });
-                return;
-            }
-            // Update violation status to DISPUTED
-            const updatedViolation = await prisma.violation.update({
-                where: { id: violationId },
-                data: {
-                    status: "DISPUTED",
-                    description: `${violation.description || ""}\n\nAppeal Reason: ${reason}`,
-                },
-            });
-            res.json({
-                success: true,
-                message: "Violation appeal submitted successfully",
-                data: {
-                    id: updatedViolation.id,
-                    status: updatedViolation.status,
-                },
-            });
-        }
-        catch (error) {
-            console.error("Error appealing violation:", error);
-            res.status(500).json({
+};
+/**
+ * Get comprehensive citizen analytics for dashboard graphs
+ * @route GET /api/citizen/analytics
+ */
+export const getCitizenAnalytics = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({
                 success: false,
-                message: "Failed to submit appeal",
-                error: error instanceof Error ? error.message : "Unknown error",
+                message: "User not authenticated",
+                statusCode: 401,
             });
         }
-    }
-    /**
-     * Get citizen's complaints
-     * @route GET /api/citizen/complaints
-     */
-    static async getMyComplaints(req, res) {
-        try {
-            const userId = req.user?.userId;
-            if (!userId) {
-                res.status(401).json({
-                    success: false,
-                    message: "Unauthorized",
-                });
-                return;
-            }
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 10;
-            const status = req.query.status;
-            const type = req.query.type;
-            const skip = (page - 1) * limit;
-            const where = {
-                complainerId: userId,
-            };
-            if (status && status !== "all") {
-                where.status = status;
-            }
-            if (type && type !== "all") {
-                where.type = type;
-            }
-            const [complaints, total] = await Promise.all([
-                prisma.complaint.findMany({
-                    where,
-                    skip,
-                    take: limit,
-                    orderBy: { createdAt: "desc" },
-                    include: {
-                        location: true,
-                        handlingStation: true,
-                    },
-                }),
-                prisma.complaint.count({ where }),
-            ]);
-            res.json({
-                success: true,
-                data: {
-                    complaints: complaints.map((c) => ({
-                        id: c.id,
-                        type: c.type.toLowerCase(),
-                        title: c.title,
-                        description: c.description || "",
-                        location: c.location
-                            ? {
-                                latitude: c.location.latitude,
-                                longitude: c.location.longitude,
-                                address: c.location.address || "",
-                            }
-                            : { latitude: 0, longitude: 0, address: "" },
-                        status: c.status.toLowerCase(),
-                        priority: c.priority?.toLowerCase() || "low",
-                        createdAt: c.createdAt,
-                        updatedAt: c.updatedAt,
-                    })),
-                    pagination: {
-                        page,
-                        limit,
-                        total,
-                        pages: Math.ceil(total / limit),
-                    },
-                },
-            });
-        }
-        catch (error) {
-            console.error("Error fetching complaints:", error);
-            res.status(500).json({
-                success: false,
-                message: "Failed to fetch complaints",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
-    }
-    /**
-     * Create a new complaint
-     * @route POST /api/citizen/complaints
-     */
-    static async createComplaint(req, res) {
-        try {
-            const userId = req.user?.userId;
-            const { type, title, description, location, priority } = req.body;
-            if (!userId) {
-                res.status(401).json({
-                    success: false,
-                    message: "Unauthorized",
-                });
-                return;
-            }
-            // Create location first
-            const createdLocation = await prisma.location.create({
-                data: {
-                    latitude: location.latitude,
-                    longitude: location.longitude,
-                    address: location.address,
-                    city: location.city,
-                    district: location.district,
-                    division: location.division,
-                    type: "COMPLAINT",
-                },
-            });
-            // Create complaint
-            const complaint = await prisma.complaint.create({
-                data: {
-                    type: type.toUpperCase(),
-                    title,
-                    description,
-                    priority: priority?.toUpperCase() || "MEDIUM",
-                    status: "PENDING",
-                    complainerId: userId,
-                    locationId: createdLocation.id,
-                },
-                include: {
-                    location: true,
-                },
-            });
-            res.status(201).json({
-                success: true,
-                message: "Complaint submitted successfully",
-                data: {
-                    id: complaint.id,
-                    type: complaint.type.toLowerCase(),
-                    title: complaint.title,
-                    description: complaint.description || "",
-                    location: {
-                        latitude: complaint.location?.latitude || 0,
-                        longitude: complaint.location?.longitude || 0,
-                        address: complaint.location?.address || "",
-                    },
-                    status: complaint.status.toLowerCase(),
-                    priority: complaint.priority?.toLowerCase() || "low",
-                    createdAt: complaint.createdAt,
-                    updatedAt: complaint.updatedAt,
-                },
-            });
-        }
-        catch (error) {
-            console.error("Error creating complaint:", error);
-            res.status(500).json({
-                success: false,
-                message: "Failed to create complaint",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
-    }
-    /**
-     * Update a complaint
-     * @route PUT /api/citizen/complaints/:complaintId
-     */
-    static async updateComplaint(req, res) {
-        try {
-            const userId = req.user?.userId;
-            const { complaintId } = req.params;
-            const updates = req.body;
-            if (!userId) {
-                res.status(401).json({
-                    success: false,
-                    message: "Unauthorized",
-                });
-                return;
-            }
-            // Check if complaint belongs to user
-            const complaint = await prisma.complaint.findFirst({
-                where: {
-                    id: complaintId,
-                    complainerId: userId,
-                },
-            });
-            if (!complaint) {
-                res.status(404).json({
-                    success: false,
-                    message: "Complaint not found or you don't have permission",
-                });
-                return;
-            }
-            const updatedComplaint = await prisma.complaint.update({
-                where: { id: complaintId },
-                data: {
-                    title: updates.title || complaint.title,
-                    description: updates.description || complaint.description,
-                    priority: updates.priority?.toUpperCase() || complaint.priority,
-                },
-                include: {
-                    location: true,
-                },
-            });
-            res.json({
-                success: true,
-                message: "Complaint updated successfully",
-                data: {
-                    id: updatedComplaint.id,
-                    type: updatedComplaint.type.toLowerCase(),
-                    title: updatedComplaint.title,
-                    description: updatedComplaint.description || "",
-                    location: {
-                        latitude: updatedComplaint.location?.latitude || 0,
-                        longitude: updatedComplaint.location?.longitude || 0,
-                        address: updatedComplaint.location?.address || "",
-                    },
-                    status: updatedComplaint.status.toLowerCase(),
-                    priority: updatedComplaint.priority?.toLowerCase() || "low",
-                    createdAt: updatedComplaint.createdAt,
-                    updatedAt: updatedComplaint.updatedAt,
-                },
-            });
-        }
-        catch (error) {
-            console.error("Error updating complaint:", error);
-            res.status(500).json({
-                success: false,
-                message: "Failed to update complaint",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
-    }
-    /**
-     * Get citizen's payments
-     * @route GET /api/citizen/payments
-     */
-    static async getMyPayments(req, res) {
-        try {
-            const userId = req.user?.userId;
-            if (!userId) {
-                res.status(401).json({
-                    success: false,
-                    message: "Unauthorized",
-                });
-                return;
-            }
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 10;
-            const status = req.query.status;
-            const skip = (page - 1) * limit;
-            // Get user's violations with fines
-            const userVehicles = await prisma.vehicle.findMany({
-                where: { ownerId: userId },
-                select: { id: true },
-            });
-            const vehicleIds = userVehicles.map((v) => v.id);
-            const where = {
+        // Get current balance from reward transactions
+        const rewardTransactions = await prisma.rewardTransaction.findMany({
+            where: { userId, status: "COMPLETED" },
+            select: { amount: true, type: true },
+        });
+        const totalRewards = rewardTransactions
+            .filter((t) => t.type === "REWARD" || t.type === "BONUS")
+            .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        const totalPenalties = rewardTransactions
+            .filter((t) => t.type === "PENALTY" || t.type === "DEDUCTION")
+            .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        const currentBalance = totalRewards - totalPenalties;
+        // Get violations overview (last 6 months)
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        const violationsByMonth = await prisma.$queryRaw `
+      SELECT 
+        TO_CHAR(v."createdAt", 'Mon YYYY') as month,
+        COUNT(*)::bigint as count
+      FROM violations v
+      INNER JOIN vehicles ve ON v."vehicleId" = ve.id
+      WHERE ve."ownerId" = ${userId}
+        AND v."createdAt" >= ${sixMonthsAgo}
+      GROUP BY TO_CHAR(v."createdAt", 'Mon YYYY'), DATE_TRUNC('month', v."createdAt")
+      ORDER BY DATE_TRUNC('month', v."createdAt") ASC
+    `;
+        // Get fines analytics (last 6 months)
+        const finesByMonth = await prisma.$queryRaw `
+      SELECT 
+        TO_CHAR(f."createdAt", 'Mon YYYY') as month,
+        SUM(f.amount)::int as total,
+        SUM(CASE WHEN f.status = 'PAID' THEN f.amount ELSE 0 END)::int as paid,
+        SUM(CASE WHEN f.status != 'PAID' THEN f.amount ELSE 0 END)::int as unpaid
+      FROM fines f
+      INNER JOIN violations v ON f."violationId" = v.id
+      INNER JOIN vehicles ve ON v."vehicleId" = ve.id
+      WHERE ve."ownerId" = ${userId}
+        AND f."createdAt" >= ${sixMonthsAgo}
+      GROUP BY TO_CHAR(f."createdAt", 'Mon YYYY'), DATE_TRUNC('month', f."createdAt")
+      ORDER BY DATE_TRUNC('month', f."createdAt") ASC
+    `;
+        // Get rewards over time (last 6 months)
+        const rewardsByMonth = await prisma.$queryRaw `
+      SELECT 
+        TO_CHAR(rt."createdAt", 'Mon YYYY') as month,
+        SUM(CASE WHEN rt.type IN ('REWARD', 'BONUS') THEN ABS(rt.amount) ELSE 0 END)::int as rewards,
+        SUM(CASE WHEN rt.type IN ('PENALTY', 'DEDUCTION') THEN ABS(rt.amount) ELSE 0 END)::int as penalties
+      FROM reward_transactions rt
+      WHERE rt."userId" = ${userId}
+        AND rt.status = 'COMPLETED'
+        AND rt."createdAt" >= ${sixMonthsAgo}
+      GROUP BY TO_CHAR(rt."createdAt", 'Mon YYYY'), DATE_TRUNC('month', rt."createdAt")
+      ORDER BY DATE_TRUNC('month', rt."createdAt") ASC
+    `;
+        // Get violation types breakdown
+        const violationsByType = await prisma.$queryRaw `
+      SELECT 
+        r.title as type,
+        COUNT(*)::bigint as count
+      FROM violations v
+      INNER JOIN vehicles ve ON v."vehicleId" = ve.id
+      INNER JOIN rules r ON v."ruleId" = r.id
+      WHERE ve."ownerId" = ${userId}
+      GROUP BY r.title
+      ORDER BY count DESC
+      LIMIT 10
+    `;
+        // Get recent activity (last 10 items)
+        const recentFines = await prisma.fine.findMany({
+            where: {
+                violation: { vehicle: { ownerId: userId } },
+            },
+            include: {
                 violation: {
-                    vehicleId: { in: vehicleIds },
-                },
-            };
-            if (status && status !== "all") {
-                where.status = status.toUpperCase();
-            }
-            const [fines, total] = await Promise.all([
-                prisma.fine.findMany({
-                    where,
-                    skip,
-                    take: limit,
-                    orderBy: { createdAt: "desc" },
                     include: {
-                        violation: {
-                            include: {
-                                vehicle: true,
-                                rule: true,
-                            },
-                        },
-                    },
-                }),
-                prisma.fine.count({ where }),
-            ]);
-            res.json({
-                success: true,
-                data: {
-                    payments: fines.map((f) => ({
-                        id: f.id,
-                        amount: f.amount,
-                        method: "online", // Default method
-                        status: f.status.toLowerCase(),
-                        description: `Fine for ${f.violation?.rule?.title || "Violation"}`,
-                        paidAt: f.paidAt,
-                        createdAt: f.createdAt,
-                    })),
-                    pagination: {
-                        page,
-                        limit,
-                        total,
-                        pages: Math.ceil(total / limit),
+                        rule: { select: { title: true } },
+                        vehicle: { select: { plateNo: true } },
                     },
                 },
-            });
-        }
-        catch (error) {
-            console.error("Error fetching payments:", error);
-            res.status(500).json({
-                success: false,
-                message: "Failed to fetch payments",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
+            },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+        });
+        const recentRewards = await prisma.rewardTransaction.findMany({
+            where: { userId, status: "COMPLETED" },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+        });
+        // Combine and sort recent activity
+        const recentActivity = [
+            ...recentFines.map((fine) => ({
+                id: fine.id,
+                type: "fine",
+                description: fine.violation?.rule?.title || "Fine",
+                amount: fine.amount,
+                status: fine.status,
+                date: fine.createdAt,
+                vehicle: fine.violation?.vehicle?.plateNo,
+            })),
+            ...recentRewards.map((reward) => ({
+                id: reward.id,
+                type: "reward",
+                description: reward.description || "Reward",
+                amount: reward.amount,
+                status: reward.status,
+                date: reward.createdAt,
+            })),
+        ]
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .slice(0, 10);
+        // Get total reports submitted
+        const totalReports = await prisma.citizenReport.count({
+            where: { citizenId: userId },
+        });
+        const approvedReports = await prisma.citizenReport.count({
+            where: { citizenId: userId, status: "APPROVED" },
+        });
+        const analytics = {
+            // Summary
+            currentBalance,
+            totalRewards,
+            totalPenalties,
+            totalReports,
+            approvedReports,
+            // Graphs data
+            violationsOverview: violationsByMonth.map((v) => ({
+                month: v.month,
+                count: Number(v.count),
+            })),
+            finesAnalytics: finesByMonth.map((f) => ({
+                month: f.month,
+                total: f.total,
+                paid: f.paid,
+                unpaid: f.unpaid,
+            })),
+            rewardsOverTime: rewardsByMonth.map((r) => ({
+                month: r.month,
+                rewards: r.rewards,
+                penalties: r.penalties,
+                net: r.rewards - r.penalties,
+            })),
+            violationsByType: violationsByType.map((v) => ({
+                type: v.type,
+                count: Number(v.count),
+            })),
+            recentActivity,
+        };
+        // 📊 LOG BACKEND RESPONSE DATA
+        console.log("\n====== BACKEND: SENDING CITIZEN ANALYTICS ======");
+        console.log("User ID:", userId);
+        console.log("📈 Current Balance:", currentBalance);
+        console.log("💰 Total Rewards:", totalRewards);
+        console.log("⚠️ Total Penalties:", totalPenalties);
+        console.log("📝 Total Reports:", totalReports);
+        console.log("✅ Approved Reports:", approvedReports);
+        console.log("🔴 Violations Overview:", analytics.violationsOverview);
+        console.log("💵 Fines Analytics:", analytics.finesAnalytics);
+        console.log("📊 Rewards Over Time:", analytics.rewardsOverTime);
+        console.log("🏷️ Violations By Type:", analytics.violationsByType);
+        console.log("⏰ Recent Activity count:", analytics.recentActivity.length);
+        console.log("================================================\n");
+        return res.status(200).json({
+            success: true,
+            data: analytics,
+            statusCode: 200,
+        });
     }
-    /**
-     * Create a payment
-     * @route POST /api/citizen/payments
-     */
-    static async createPayment(req, res) {
-        try {
-            const userId = req.user?.userId;
-            const { amount, method, description, violationId } = req.body;
-            if (!userId) {
-                res.status(401).json({
-                    success: false,
-                    message: "Unauthorized",
-                });
-                return;
-            }
-            if (!violationId) {
-                res.status(400).json({
-                    success: false,
-                    message: "Violation ID is required",
-                });
-                return;
-            }
-            // Get user's vehicles
-            const userVehicles = await prisma.vehicle.findMany({
-                where: { ownerId: userId },
-                select: { id: true },
-            });
-            const vehicleIds = userVehicles.map((v) => v.id);
-            // Check if violation belongs to user
-            const violation = await prisma.violation.findFirst({
-                where: {
-                    id: violationId,
-                    vehicleId: { in: vehicleIds },
-                },
-                include: {
-                    fine: true,
-                },
-            });
-            if (!violation) {
-                res.status(404).json({
-                    success: false,
-                    message: "Violation not found",
-                });
-                return;
-            }
-            if (!violation.fine) {
-                res.status(400).json({
-                    success: false,
-                    message: "No fine associated with this violation",
-                });
-                return;
-            }
-            // Update fine status to PAID
-            const updatedFine = await prisma.fine.update({
-                where: { id: violation.fine.id },
-                data: {
-                    status: "PAID",
-                    paidAt: new Date(),
-                },
-            });
-            res.status(201).json({
-                success: true,
-                message: "Payment processed successfully",
-                data: {
-                    id: updatedFine.id,
-                    amount: updatedFine.amount,
-                    method,
-                    status: "paid",
-                    description,
-                    paidAt: updatedFine.paidAt,
-                    createdAt: updatedFine.createdAt,
-                },
-            });
-        }
-        catch (error) {
-            console.error("Error processing payment:", error);
-            res.status(500).json({
-                success: false,
-                message: "Failed to process payment",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
+    catch (error) {
+        console.error("Error fetching citizen analytics:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch analytics",
+            statusCode: 500,
+        });
     }
-    /**
-     * Get citizen's profile
-     * @route GET /api/citizen/profile
-     */
-    static async getMyProfile(req, res) {
-        try {
-            const userId = req.user?.userId;
-            if (!userId) {
-                res.status(401).json({
-                    success: false,
-                    message: "Unauthorized",
-                });
-                return;
-            }
-            const user = await prisma.user.findUnique({
-                where: { id: userId },
-                include: {
-                    citizenGem: true,
-                },
-            });
-            if (!user) {
-                res.status(404).json({
-                    success: false,
-                    message: "User not found",
-                });
-                return;
-            }
-            res.json({
-                success: true,
-                data: {
-                    id: user.id,
-                    firstName: user.firstName,
-                    lastName: user.lastName,
-                    email: user.email,
-                    phone: user.phone,
-                    role: user.role,
-                    gems: user.citizenGem?.amount || 100,
-                    isRestricted: user.citizenGem?.isRestricted || false,
-                    createdAt: user.createdAt,
-                },
-            });
-        }
-        catch (error) {
-            console.error("Error fetching profile:", error);
-            res.status(500).json({
-                success: false,
-                message: "Failed to fetch profile",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
-    }
-    /**
-     * Update citizen's profile
-     * @route PUT /api/citizen/profile
-     */
-    static async updateMyProfile(req, res) {
-        try {
-            const userId = req.user?.userId;
-            const updates = req.body;
-            if (!userId) {
-                res.status(401).json({
-                    success: false,
-                    message: "Unauthorized",
-                });
-                return;
-            }
-            const user = await prisma.user.update({
-                where: { id: userId },
-                data: {
-                    firstName: updates.firstName,
-                    lastName: updates.lastName,
-                    phone: updates.phone,
-                },
-            });
-            res.json({
-                success: true,
-                message: "Profile updated successfully",
-                data: {
-                    id: user.id,
-                    firstName: user.firstName,
-                    lastName: user.lastName,
-                    email: user.email,
-                    phone: user.phone,
-                    role: user.role,
-                },
-            });
-        }
-        catch (error) {
-            console.error("Error updating profile:", error);
-            res.status(500).json({
-                success: false,
-                message: "Failed to update profile",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
-    }
-    /**
-     * Get citizen's gems
-     * @route GET /api/citizen/gems
-     */
-    static async getMyGems(req, res) {
-        try {
-            const userId = req.user?.userId;
-            if (!userId) {
-                res.status(401).json({
-                    success: false,
-                    message: "Unauthorized",
-                });
-                return;
-            }
-            const citizenGem = await prisma.citizenGem.findUnique({
-                where: { citizenId: userId },
-            });
-            res.json({
-                success: true,
-                data: {
-                    totalGems: citizenGem?.amount || 100,
-                    recentActivities: [], // TODO: Implement activity tracking
-                },
-            });
-        }
-        catch (error) {
-            console.error("Error fetching gems:", error);
-            res.status(500).json({
-                success: false,
-                message: "Failed to fetch gems",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
-    }
-    /**
-     * Get emergency contacts
-     * @route GET /api/citizen/emergency-contacts
-     */
-    static async getEmergencyContacts(req, res) {
-        try {
-            // Return static emergency contacts
-            const emergencyContacts = [
-                {
-                    id: "1",
-                    name: "Police Emergency",
-                    phone: "999",
-                    type: "police",
-                },
-                {
-                    id: "2",
-                    name: "Fire Service",
-                    phone: "102",
-                    type: "fire",
-                },
-                {
-                    id: "3",
-                    name: "Ambulance",
-                    phone: "199",
-                    type: "medical",
-                },
-                {
-                    id: "4",
-                    name: "Traffic Police",
-                    phone: "01713-398311",
-                    type: "traffic",
-                },
-            ];
-            res.json({
-                success: true,
-                data: emergencyContacts,
-            });
-        }
-        catch (error) {
-            console.error("Error fetching emergency contacts:", error);
-            res.status(500).json({
-                success: false,
-                message: "Failed to fetch emergency contacts",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
-    }
-}
+};

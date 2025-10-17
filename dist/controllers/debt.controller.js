@@ -4,13 +4,7 @@ import { z } from "zod";
 const payDebtSchema = z.object({
     debtId: z.string().uuid(),
     amount: z.number().positive("Amount must be positive"),
-    paymentMethod: z.enum([
-        "CASH",
-        "CARD",
-        "BANK_TRANSFER",
-        "MOBILE_MONEY",
-        "ONLINE",
-    ]),
+    paymentMethod: z.enum(["CARD", "BANK_TRANSFER", "MOBILE_MONEY", "ONLINE"]),
     paymentReference: z.string().optional(),
 });
 /**
@@ -134,7 +128,7 @@ export const payDebt = async (req, res) => {
                 details: validation.error.issues,
             });
         }
-        const { debtId, amount, paymentMethod, paymentReference } = validation.data;
+        const { debtId, amount } = validation.data;
         // Verify debt ownership
         const debt = await DebtManagementService.getDebtById(debtId);
         if (!debt) {
@@ -164,12 +158,55 @@ export const payDebt = async (req, res) => {
                 error: `Payment amount (${amount}) exceeds remaining balance (${remainingBalance})`,
             });
         }
-        // Record payment
-        const updatedDebt = await DebtManagementService.recordPayment(debtId, amount, paymentReference || `${paymentMethod}_${Date.now()}`);
+        // Import SSLCommerz service
+        const { SSLCommerzService } = await import("../services/sslcommerz.service");
+        const sslCommerz = new SSLCommerzService();
+        // Generate unique transaction ID
+        const transactionId = `DEBT_${debtId}_${Date.now()}`;
+        // Prepare payment data for SSLCommerz
+        const paymentData = {
+            total_amount: amount,
+            currency: process.env.CURRENCY || "BDT",
+            tran_id: transactionId,
+            success_url: `${process.env.PAYMENT_SUCCESS_URL}?type=debt&debtId=${debtId}`,
+            fail_url: `${process.env.PAYMENT_FAIL_URL}?type=debt&debtId=${debtId}`,
+            cancel_url: `${process.env.PAYMENT_CANCEL_URL}?type=debt&debtId=${debtId}`,
+            ipn_url: process.env.PAYMENT_IPN_URL,
+            cus_name: `${req.user.firstName} ${req.user.lastName}`,
+            cus_email: req.user.email,
+            cus_add1: "Dhaka",
+            cus_city: "Dhaka",
+            cus_postcode: "1000",
+            cus_country: "Bangladesh",
+            cus_phone: req.user.phone,
+            shipping_method: "NO",
+            product_name: `Debt Payment - ${debtId}`,
+            product_category: "Debt",
+            product_profile: "non-physical-goods",
+        };
+        console.log("💳 Initiating SSLCommerz payment for debt:", {
+            debtId,
+            amount,
+            transactionId,
+        });
+        // Initialize payment with SSLCommerz
+        const paymentResponse = await sslCommerz.initPayment(paymentData);
+        if (!paymentResponse.success) {
+            return res.status(400).json({
+                success: false,
+                error: paymentResponse.message || "Failed to initialize payment",
+            });
+        }
+        console.log("✅ SSLCommerz payment initialized:", paymentResponse.gatewayPageURL);
         return res.status(200).json({
             success: true,
-            message: "Payment recorded successfully",
-            data: updatedDebt,
+            message: "Payment initialized successfully",
+            data: {
+                paymentUrl: paymentResponse.gatewayPageURL,
+                transactionId: transactionId,
+                amount: amount,
+                debtId: debtId,
+            },
         });
     }
     catch (error) {

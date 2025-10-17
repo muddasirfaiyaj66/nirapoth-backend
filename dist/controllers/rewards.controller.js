@@ -28,6 +28,12 @@ export class RewardsController {
                 });
                 return;
             }
+            // ==========================================
+            // CORRECT BALANCE CALCULATION
+            // ==========================================
+            // Balance = Rewards - Penalties (simple!)
+            // Debt is shown separately (NOT subtracted from balance)
+            // ==========================================
             // Get all completed transactions
             const transactions = await prisma.rewardTransaction.findMany({
                 where: {
@@ -35,43 +41,130 @@ export class RewardsController {
                     status: "COMPLETED",
                 },
                 select: {
+                    id: true,
                     amount: true,
                     type: true,
+                    source: true,
                     status: true,
                 },
             });
-            // Also get rewards/penalties from citizen reports (for backward compatibility)
-            // This ensures we include reports that were approved/rejected before reward transactions were implemented
-            const citizenReports = await prisma.citizenReport.findMany({
-                where: {
-                    citizenId: userId,
-                    status: { in: ["APPROVED", "REJECTED"] },
-                },
-                select: {
-                    status: true,
-                    rewardAmount: true,
-                    penaltyAmount: true,
-                },
-            });
-            // Calculate totals from transactions
-            const transactionEarnings = transactions
+            // Calculate REWARDS (money earned)
+            const totalRewards = transactions
                 .filter((t) => t.type === "REWARD" || t.type === "BONUS")
-                .reduce((sum, t) => sum + t.amount, 0);
-            const transactionPenalties = transactions
+                .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+            // Calculate PENALTIES (money deducted from reports)
+            const totalPenalties = transactions
                 .filter((t) => t.type === "PENALTY" || t.type === "DEDUCTION")
                 .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-            // Calculate totals from citizen reports (for backward compatibility)
-            const reportRewards = citizenReports
-                .filter((r) => r.status === "APPROVED")
-                .reduce((sum, r) => sum + (r.rewardAmount || 0), 0);
-            const reportPenalties = citizenReports
-                .filter((r) => r.status === "REJECTED")
-                .reduce((sum, r) => sum + (r.penaltyAmount || 0), 0);
-            // Combine both sources (this handles cases where reward transactions exist and where they don't)
-            // Note: If reward transactions exist for all reports, this will double count
-            // TODO: Implement proper sync mechanism or migration to ensure all reports have transactions
-            const totalEarned = Math.max(transactionEarnings, reportRewards);
-            const totalPenalties = Math.max(transactionPenalties, reportPenalties);
+            // Calculate FINE PAYMENTS (payments for traffic violations)
+            const totalFinePayments = transactions
+                .filter((t) => t.source === "FINE_PAYMENT")
+                .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+            // Calculate DEBT PAYMENTS (payments made towards outstanding debt)
+            const totalDebtPayments = transactions
+                .filter((t) => t.type === "DEBT_PAYMENT")
+                .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+            console.log("💰 Transaction Summary:", {
+                totalRewards,
+                totalPenalties,
+                totalFinePayments,
+                totalDebtPayments,
+            });
+            // ==========================================
+            // CORE BALANCE = Rewards - Penalties
+            // This can be positive or negative
+            // If negative, debt is created separately
+            // ==========================================
+            const currentBalance = totalRewards - totalPenalties;
+            console.log("💵 Core Balance Calculation:", {
+                totalRewards,
+                totalPenalties,
+                currentBalance,
+                status: currentBalance >= 0 ? "POSITIVE ✅" : "NEGATIVE (Debt) ⚠️",
+                formula: `${totalRewards} - ${totalPenalties} = ${currentBalance}`,
+            });
+            // Get outstanding debts (shown separately, NOT subtracted from balance)
+            const outstandingDebts = await prisma.outstandingDebt.findMany({
+                where: {
+                    userId,
+                    status: { in: ["OUTSTANDING", "PARTIAL"] },
+                },
+                select: {
+                    id: true,
+                    originalAmount: true,
+                    currentAmount: true,
+                    paidAmount: true,
+                    status: true,
+                },
+            });
+            const totalOutstandingDebt = outstandingDebts.reduce((total, debt) => {
+                const remaining = Math.abs(debt.currentAmount) - Math.abs(debt.paidAmount);
+                return total + Math.max(0, remaining);
+            }, 0);
+            console.log("💳 Outstanding Debts (Separate Info):", {
+                count: outstandingDebts.length,
+                totalOutstandingDebt,
+                note: "These are debts user needs to pay (shown separately, not subtracted from balance)",
+            });
+            // ==========================================
+            // 🚀 AUTO-CLEARANCE: If balance is positive AND debt exists
+            // Automatically clear debt from balance
+            // ==========================================
+            let finalBalance = currentBalance;
+            let finalOutstandingDebt = totalOutstandingDebt;
+            if (currentBalance > 0 && totalOutstandingDebt > 0) {
+                console.log("🔄 AUTO-CLEARING DEBT:", {
+                    beforeBalance: currentBalance,
+                    beforeDebt: totalOutstandingDebt,
+                    action: "Automatically clearing debt from positive balance",
+                });
+                if (currentBalance >= totalOutstandingDebt) {
+                    // User has enough to clear ALL debt
+                    finalBalance = currentBalance - totalOutstandingDebt;
+                    finalOutstandingDebt = 0;
+                    // Mark all debts as PAID
+                    for (const debt of outstandingDebts) {
+                        await prisma.outstandingDebt.update({
+                            where: { id: debt.id },
+                            data: {
+                                status: "PAID",
+                                paidAmount: Math.abs(debt.originalAmount),
+                                updatedAt: new Date(),
+                            },
+                        });
+                    }
+                    console.log("✅ ALL DEBT CLEARED:", {
+                        afterBalance: finalBalance,
+                        afterDebt: finalOutstandingDebt,
+                        clearedAmount: totalOutstandingDebt,
+                    });
+                }
+                else {
+                    // User has partial payment (balance < debt)
+                    finalOutstandingDebt = totalOutstandingDebt - currentBalance;
+                    finalBalance = 0;
+                    // Update debt with partial payment
+                    for (const debt of outstandingDebts) {
+                        const remaining = Math.abs(debt.currentAmount) - Math.abs(debt.paidAmount);
+                        if (remaining > 0 && currentBalance > 0) {
+                            const payAmount = Math.min(remaining, currentBalance);
+                            await prisma.outstandingDebt.update({
+                                where: { id: debt.id },
+                                data: {
+                                    paidAmount: Math.abs(debt.paidAmount) + payAmount,
+                                    status: payAmount >= remaining ? "PAID" : "PARTIAL",
+                                    updatedAt: new Date(),
+                                },
+                            });
+                        }
+                    }
+                    console.log("⚠️ PARTIAL DEBT CLEARED:", {
+                        afterBalance: finalBalance,
+                        afterDebt: finalOutstandingDebt,
+                        clearedAmount: currentBalance,
+                    });
+                }
+            }
             // Get pending rewards
             const pendingRewards = await prisma.rewardTransaction.aggregate({
                 where: {
@@ -81,7 +174,7 @@ export class RewardsController {
                 },
                 _sum: { amount: true },
             });
-            // Get pending withdrawals amount
+            // Get pending withdrawals
             const pendingWithdrawals = await prisma.withdrawalRequest.aggregate({
                 where: {
                     userId,
@@ -89,15 +182,20 @@ export class RewardsController {
                 },
                 _sum: { amount: true },
             });
-            const currentBalance = totalEarned - totalPenalties;
-            const withdrawableAmount = Math.max(0, currentBalance - (pendingWithdrawals._sum.amount || 0));
+            // ==========================================
+            // FINAL BALANCE (after auto-clearance)
+            // ==========================================
+            const availableBalance = finalBalance - (pendingWithdrawals._sum.amount || 0);
             const balance = {
                 userId,
-                totalEarned,
+                totalEarned: totalRewards,
                 totalPenalties,
-                currentBalance,
+                totalFinePayments,
+                totalOutstandingDebt: finalOutstandingDebt,
+                totalDebtPayments,
+                currentBalance: finalBalance,
                 pendingRewards: pendingRewards._sum.amount || 0,
-                withdrawableAmount,
+                withdrawableAmount: Math.max(0, availableBalance),
                 lastUpdated: new Date().toISOString(),
             };
             res.status(200).json({

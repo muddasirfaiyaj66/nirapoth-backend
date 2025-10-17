@@ -29,17 +29,20 @@ import drivingLicenseRoutes from "./routes/drivingLicense.routes";
 import vehicleAssignmentRoutes from "./routes/vehicleAssignment.routes";
 import userProfileRoutes from "./routes/userProfile.routes";
 import policeManagementRoutes from "./routes/policeManagement.routes";
-import { vehicleRoutes } from "./routes/vehicle.routes";
+import vehicleRoutes from "./routes/vehicle.routes";
 import { violationRoutes } from "./routes/violation.routes";
 import { complaintRoutes } from "./routes/complaint.routes";
 import { paymentRoutes } from "./routes/payment.routes";
 import { fineRoutes } from "./routes/fine.routes";
 import { aiIntegrationRoutes } from "./routes/aiIntegration.routes";
 import { citizenRoutes } from "./routes/citizen.routes";
+import { policeRoutes } from "./routes/police.routes";
+import { fireServiceRoutes } from "./routes/fireService.routes";
 import cameraRoutes from "./routes/camera.routes";
 import notificationRoutes from "./routes/notification.routes";
 import citizenReportsRoutes from "./routes/citizenReports.routes";
 import rewardsRoutes from "./routes/rewards.routes";
+import bdGeoRoutes from "./routes/bdGeo.routes";
 
 export const app = express();
 const httpServer = createServer(app);
@@ -90,7 +93,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/admin", adminRoutes);
 
 // Enhanced User System Routes
-app.use("/api/driving-license", drivingLicenseRoutes);
+app.use("/api/driving-licenses", drivingLicenseRoutes);
 app.use("/api/vehicle-assignment", vehicleAssignmentRoutes);
 app.use("/api/user-profile", userProfileRoutes);
 app.use("/api/police", policeManagementRoutes);
@@ -101,10 +104,13 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/fines", fineRoutes);
 app.use("/api/ai", aiIntegrationRoutes);
 app.use("/api/citizen", citizenRoutes);
+app.use("/api/police", policeRoutes);
+app.use("/api/fire-service", fireServiceRoutes);
 app.use("/api/cameras", cameraRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/citizen-reports", citizenReportsRoutes);
 app.use("/api/rewards", rewardsRoutes);
+app.use("/api/bd-geo", bdGeoRoutes);
 
 // Test route to check if server is running (legacy)
 app.get("/", (req: Request, res: Response) => {

@@ -76,23 +76,41 @@ export class DebtManagementService {
     /**
      * Record a debt payment
      */
-    static async recordPayment(debtId, amount, paymentReference) {
-        const debt = await prisma.outstandingDebt.findUnique({
+    static async recordPayment(debtId, amount, paymentReference, tx) {
+        const db = tx || prisma;
+        const debt = await db.outstandingDebt.findUnique({
             where: { id: debtId },
         });
         if (!debt) {
             throw new Error("Debt not found");
         }
+        console.log("📝 Recording payment - BEFORE:", {
+            debtId,
+            originalAmount: debt.originalAmount,
+            currentAmount: debt.currentAmount,
+            paidAmount: debt.paidAmount,
+            status: debt.status,
+            lateFees: debt.lateFees,
+        });
         const newPaidAmount = debt.paidAmount + amount;
         const remainingAmount = debt.currentAmount - newPaidAmount;
+        console.log("💰 Payment calculation:", {
+            paymentAmount: amount,
+            previousPaidAmount: debt.paidAmount,
+            newPaidAmount,
+            currentAmount: debt.currentAmount,
+            remainingAmount,
+        });
         let newStatus = debt.status;
         if (remainingAmount <= 0) {
             newStatus = "PAID";
+            console.log("✅ Setting status to PAID (remaining <= 0)");
         }
         else if (newPaidAmount > 0) {
             newStatus = "PARTIAL";
+            console.log("⚠️ Setting status to PARTIAL (partial payment)");
         }
-        return await prisma.outstandingDebt.update({
+        const updatedDebt = await db.outstandingDebt.update({
             where: { id: debtId },
             data: {
                 paidAmount: newPaidAmount,
@@ -101,6 +119,14 @@ export class DebtManagementService {
                 paymentReference,
             },
         });
+        console.log("📝 Recording payment - AFTER:", {
+            debtId,
+            currentAmount: updatedDebt.currentAmount,
+            paidAmount: updatedDebt.paidAmount,
+            status: updatedDebt.status,
+            remaining: updatedDebt.currentAmount - updatedDebt.paidAmount,
+        });
+        return updatedDebt;
     }
     /**
      * Get a debt by ID
@@ -160,6 +186,10 @@ export class DebtManagementService {
      */
     static async checkAndCreateDebtForNegativeBalance(userId) {
         console.log("🔍 Checking for negative balance for user:", userId);
+        // ==========================================
+        // INDUSTRY STANDARD BALANCE CALCULATION
+        // Same logic as getMyBalance
+        // ==========================================
         // Calculate current balance from transactions
         const transactions = await prisma.rewardTransaction.findMany({
             where: {
@@ -172,47 +202,44 @@ export class DebtManagementService {
             },
         });
         console.log("📊 Found transactions:", transactions.length);
-        // Also check citizen reports for backward compatibility (same as getMyBalance)
-        const citizenReports = await prisma.citizenReport.findMany({
-            where: {
-                citizenId: userId,
-                status: { in: ["APPROVED", "REJECTED"] },
-            },
-            select: {
-                status: true,
-                rewardAmount: true,
-                penaltyAmount: true,
-            },
-        });
-        console.log("📊 Found citizen reports:", citizenReports.length);
-        // Calculate from transactions
-        const transactionEarnings = transactions
+        // Calculate REWARDS (positive additions)
+        const totalRewards = transactions
             .filter((t) => t.type === "REWARD" || t.type === "BONUS")
-            .reduce((sum, t) => sum + t.amount, 0);
-        const transactionPenalties = transactions
+            .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        // Calculate PENALTIES (deductions)
+        const totalPenalties = transactions
             .filter((t) => t.type === "PENALTY" || t.type === "DEDUCTION")
             .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-        // Calculate from citizen reports (backward compatibility)
-        const reportRewards = citizenReports
-            .filter((r) => r.status === "APPROVED")
-            .reduce((sum, r) => sum + (r.rewardAmount || 0), 0);
-        const reportPenalties = citizenReports
-            .filter((r) => r.status === "REJECTED")
-            .reduce((sum, r) => sum + (r.penaltyAmount || 0), 0);
-        // Use the same logic as getMyBalance - take the maximum to avoid double counting
-        const totalEarned = Math.max(transactionEarnings, reportRewards);
-        const totalPenalties = Math.max(transactionPenalties, reportPenalties);
-        const currentBalance = totalEarned - totalPenalties;
-        console.log("💰 Balance calculation:", {
-            transactionEarnings,
-            transactionPenalties,
-            reportRewards,
-            reportPenalties,
-            totalEarned,
-            totalPenalties,
-            currentBalance,
+        // Calculate DEBT PAYMENTS (already paid)
+        const totalDebtPayments = transactions
+            .filter((t) => t.type === "DEBT_PAYMENT")
+            .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        // Get outstanding debts
+        const outstandingDebts = await prisma.outstandingDebt.findMany({
+            where: {
+                userId,
+                status: { in: ["OUTSTANDING", "PARTIAL"] },
+            },
+            select: {
+                currentAmount: true,
+                paidAmount: true,
+            },
         });
-        // If balance is negative, create or update debt
+        const totalOutstandingDebt = outstandingDebts.reduce((total, debt) => {
+            const remaining = Math.abs(debt.currentAmount) - Math.abs(debt.paidAmount);
+            return total + Math.max(0, remaining);
+        }, 0);
+        // Balance = Rewards - Penalties - Outstanding Debt
+        const currentBalance = totalRewards - totalPenalties - totalOutstandingDebt;
+        console.log("💰 Balance calculation for debt check:", {
+            totalRewards,
+            totalPenalties,
+            totalDebtPayments,
+            totalOutstandingDebt,
+            currentBalance,
+            formula: `${totalRewards} - ${totalPenalties} - ${totalOutstandingDebt} = ${currentBalance}`,
+        });
+        // If balance is negative (after accounting for existing debts), create new debt
         if (currentBalance < 0) {
             console.log("⚠️ Negative balance detected:", currentBalance);
             const existingDebt = await prisma.outstandingDebt.findFirst({

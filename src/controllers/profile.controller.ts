@@ -399,6 +399,11 @@ export const updateProfile = async (
     // Validate request body
     const validatedData = updateProfileSchema.parse(req.body);
 
+    if (process.env.NODE_ENV === "development") {
+      console.log("🔍 Profile update request:", req.body);
+      console.log("✅ Validated data:", validatedData);
+    }
+
     // Get user ID from authenticated request
     const userId = req.userId;
     if (!userId) {
@@ -499,6 +504,7 @@ export const updateProfile = async (
     res.status(200).json(response);
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error("🔴 Profile validation error:", error.issues);
       res.status(400).json({
         success: false,
         message: "Validation failed",
@@ -508,7 +514,7 @@ export const updateProfile = async (
       return;
     }
 
-    console.error("Update profile error:", error);
+    console.error("🔴 Update profile error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",

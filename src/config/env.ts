@@ -41,9 +41,12 @@ export const config = {
     smtpHost: process.env.SMTP_HOST || "smtp.gmail.com",
     smtpPort: parseInt(process.env.SMTP_PORT || "587"),
     smtpSecure: process.env.SMTP_SECURE === "true",
-    smtpUser: process.env.SMTP_USER || "",
-    smtpPass: process.env.SMTP_PASS || "",
-    fromEmail: process.env.FROM_EMAIL || "noreply@nirapoth.com",
+    smtpUser: process.env.EMAIL_SEND_USER_EMAIL || process.env.SMTP_USER || "",
+    smtpPass: process.env.EMAIL_SEND_USER_PASS || process.env.SMTP_PASS || "",
+    fromEmail:
+      process.env.FROM_EMAIL ||
+      process.env.EMAIL_SEND_USER_EMAIL ||
+      "noreply@nirapoth.com",
     fromName: process.env.FROM_NAME || "Nirapoth",
     baseUrl: process.env.BASE_URL || "http://localhost:3000",
   },
