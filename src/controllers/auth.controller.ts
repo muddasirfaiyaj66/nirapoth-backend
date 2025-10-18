@@ -101,36 +101,35 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // NOTE: CitizenGem is NOT created here
     // It will be created automatically when user adds their driving license
 
-    // Send verification email (non-blocking in production)
+    // Queue verification email where possible (non-blocking)
     let emailSent = false;
     if (!autoVerifyInDev) {
       try {
-        const emailService = new EmailService();
-        // Send email asynchronously without blocking registration
-        emailService
-          .sendVerificationEmail({
+        const { enqueueVerificationEmail } = await import(
+          "../queues/email.queue"
+        );
+        const queued = await enqueueVerificationEmail(
+          user.email,
+          user.firstName,
+          user.lastName,
+          verificationToken
+        );
+        if (!queued) {
+          // Fallback to direct send if queue not available
+          const emailService = new EmailService();
+          await emailService.sendVerificationEmail({
             email: user.email,
             firstName: user.firstName,
             lastName: user.lastName,
             verificationToken,
-          })
-          .then(() => {
-            console.log(`✅ Verification email sent to ${user.email}`);
-          })
-          .catch((emailError: any) => {
-            console.error(
-              `❌ Failed to send verification email to ${user.email}:`,
-              emailError?.message
-            );
-            // Email failure doesn't block registration
           });
+        }
         emailSent = true;
       } catch (emailError: any) {
         console.warn(
-          `⚠️  Email service initialization failed for ${user.email}:`,
+          `⚠️  Email queue/send failed for ${user.email}:`,
           emailError?.message
         );
-        // Continue with registration even if email service fails
         emailSent = false;
       }
     } else {
@@ -962,48 +961,29 @@ export const resendVerificationEmail = async (
       },
     });
 
-    // Send verification email (non-blocking)
-    let emailSent = false;
+    // Enqueue verification email (non-blocking, with queue fallback)
     try {
-      const emailService = new EmailService();
-
-      // Check if email service is configured
-      if (!emailService.isEmailServiceConfigured()) {
-        console.warn(
-          `⚠️  Email service not configured. Verification email cannot be sent to ${user.email}`
-        );
-        res.status(503).json({
-          success: false,
-          message:
-            "Email service is temporarily unavailable. Please contact support for manual verification.",
-          statusCode: 503,
-        });
-        return;
-      }
-
-      // Send email asynchronously
-      emailService
-        .sendVerificationEmail({
+      const { enqueueVerificationEmail } = await import(
+        "../queues/email.queue"
+      );
+      const queued = await enqueueVerificationEmail(
+        user.email,
+        user.firstName,
+        user.lastName,
+        verificationToken
+      );
+      if (!queued) {
+        const emailService = new EmailService();
+        await emailService.sendVerificationEmail({
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
           verificationToken,
-        })
-        .then(() => {
-          console.log(
-            `✅ Verification email resent successfully to ${user.email}`
-          );
-        })
-        .catch((emailError: any) => {
-          console.error(
-            `❌ Failed to resend verification email to ${user.email}:`,
-            emailError?.message
-          );
         });
-      emailSent = true;
+      }
     } catch (emailError: any) {
       console.error(
-        `⚠️  Email service error for ${user.email}:`,
+        `⚠️  Failed to enqueue/send verification email to ${user.email}:`,
         emailError?.message
       );
       res.status(503).json({
@@ -1018,7 +998,7 @@ export const resendVerificationEmail = async (
     res.status(200).json({
       success: true,
       message:
-        "Verification email sent successfully. Please check your inbox and spam folder.",
+        "Verification email queued. Please check your inbox and spam folder.",
       statusCode: 200,
     });
   } catch (error) {

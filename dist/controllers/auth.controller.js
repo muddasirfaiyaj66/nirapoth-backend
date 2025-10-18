@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resendVerificationEmail = exports.resetPassword = exports.forgotPassword = exports.verifyEmail = exports.getCurrentUser = exports.refreshToken = exports.logout = exports.login = exports.register = void 0;
 const client_1 = require("@prisma/client");
@@ -78,31 +111,26 @@ const register = async (req, res) => {
         });
         // NOTE: CitizenGem is NOT created here
         // It will be created automatically when user adds their driving license
-        // Send verification email (non-blocking in production)
+        // Queue verification email where possible (non-blocking)
         let emailSent = false;
         if (!autoVerifyInDev) {
             try {
-                const emailService = new email_service_1.EmailService();
-                // Send email asynchronously without blocking registration
-                emailService
-                    .sendVerificationEmail({
-                    email: user.email,
-                    firstName: user.firstName,
-                    lastName: user.lastName,
-                    verificationToken,
-                })
-                    .then(() => {
-                    console.log(`✅ Verification email sent to ${user.email}`);
-                })
-                    .catch((emailError) => {
-                    console.error(`❌ Failed to send verification email to ${user.email}:`, emailError?.message);
-                    // Email failure doesn't block registration
-                });
+                const { enqueueVerificationEmail } = await Promise.resolve().then(() => __importStar(require("../queues/email.queue")));
+                const queued = await enqueueVerificationEmail(user.email, user.firstName, user.lastName, verificationToken);
+                if (!queued) {
+                    // Fallback to direct send if queue not available
+                    const emailService = new email_service_1.EmailService();
+                    await emailService.sendVerificationEmail({
+                        email: user.email,
+                        firstName: user.firstName,
+                        lastName: user.lastName,
+                        verificationToken,
+                    });
+                }
                 emailSent = true;
             }
             catch (emailError) {
-                console.warn(`⚠️  Email service initialization failed for ${user.email}:`, emailError?.message);
-                // Continue with registration even if email service fails
+                console.warn(`⚠️  Email queue/send failed for ${user.email}:`, emailError?.message);
                 emailSent = false;
             }
         }
@@ -838,38 +866,22 @@ const resendVerificationEmail = async (req, res) => {
                 updatedAt: new Date(),
             },
         });
-        // Send verification email (non-blocking)
-        let emailSent = false;
+        // Enqueue verification email (non-blocking, with queue fallback)
         try {
-            const emailService = new email_service_1.EmailService();
-            // Check if email service is configured
-            if (!emailService.isEmailServiceConfigured()) {
-                console.warn(`⚠️  Email service not configured. Verification email cannot be sent to ${user.email}`);
-                res.status(503).json({
-                    success: false,
-                    message: "Email service is temporarily unavailable. Please contact support for manual verification.",
-                    statusCode: 503,
+            const { enqueueVerificationEmail } = await Promise.resolve().then(() => __importStar(require("../queues/email.queue")));
+            const queued = await enqueueVerificationEmail(user.email, user.firstName, user.lastName, verificationToken);
+            if (!queued) {
+                const emailService = new email_service_1.EmailService();
+                await emailService.sendVerificationEmail({
+                    email: user.email,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    verificationToken,
                 });
-                return;
             }
-            // Send email asynchronously
-            emailService
-                .sendVerificationEmail({
-                email: user.email,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                verificationToken,
-            })
-                .then(() => {
-                console.log(`✅ Verification email resent successfully to ${user.email}`);
-            })
-                .catch((emailError) => {
-                console.error(`❌ Failed to resend verification email to ${user.email}:`, emailError?.message);
-            });
-            emailSent = true;
         }
         catch (emailError) {
-            console.error(`⚠️  Email service error for ${user.email}:`, emailError?.message);
+            console.error(`⚠️  Failed to enqueue/send verification email to ${user.email}:`, emailError?.message);
             res.status(503).json({
                 success: false,
                 message: "Email service is temporarily unavailable. Please try again later or contact support.",
@@ -879,7 +891,7 @@ const resendVerificationEmail = async (req, res) => {
         }
         res.status(200).json({
             success: true,
-            message: "Verification email sent successfully. Please check your inbox and spam folder.",
+            message: "Verification email queued. Please check your inbox and spam folder.",
             statusCode: 200,
         });
     }

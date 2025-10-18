@@ -6,6 +6,7 @@ import { createServer } from "http";
 import { config } from "./config/env";
 import { SeedService } from "./services/seed.service";
 import { initializeSocket } from "./config/socket";
+import { startEmailWorker } from "./queues/email.queue";
 
 // Import middleware
 import {
@@ -206,6 +207,9 @@ httpServer.listen(PORT, async () => {
     await SeedService.runStartupSeeding();
     console.log("=".repeat(50) + "\n");
   }
+
+  // Start background workers
+  startEmailWorker();
 });
 
 // Also export as default for ES modules

@@ -42,10 +42,39 @@ class EmailService {
         });
     }
     /**
-     * Check if email service is properly configured
+     * Quick check if SMTP is configured
      */
     isEmailServiceConfigured() {
         return this.isConfigured;
+    }
+    async delay(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+    /**
+     * Send email with retries (network hiccups like ETIMEDOUT)
+     */
+    async sendWithRetry(options, maxAttempts = 3) {
+        let attempt = 0;
+        let lastError;
+        while (attempt < maxAttempts) {
+            try {
+                await this.sendEmail(options);
+                return;
+            }
+            catch (err) {
+                lastError = err;
+                attempt += 1;
+                const code = err?.message || "";
+                // Backoff delays: 5s, 15s (no delay after final attempt)
+                const delayMs = attempt === 1 ? 5000 : attempt === 2 ? 15000 : 0;
+                console.warn(`Email send attempt ${attempt}/${maxAttempts} failed: ${code}.` +
+                    (delayMs ? ` Retrying in ${Math.round(delayMs / 1000)}s...` : ""));
+                if (delayMs) {
+                    await this.delay(delayMs);
+                }
+            }
+        }
+        throw lastError;
     }
     /**
      * Send email using the configured transporter
@@ -131,11 +160,11 @@ class EmailService {
       </body>
       </html>
     `;
-        await this.sendEmail({
+        await this.sendWithRetry({
             to: data.email,
             subject: "Verify Your Email Address - Nirapoth",
             html,
-        });
+        }, 3);
     }
     /**
      * Send password reset email

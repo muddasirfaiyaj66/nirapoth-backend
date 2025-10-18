@@ -11,6 +11,7 @@ const http_1 = require("http");
 const env_1 = require("./config/env");
 const seed_service_1 = require("./services/seed.service");
 const socket_1 = require("./config/socket");
+const email_queue_1 = require("./queues/email.queue");
 // Import middleware
 const security_middleware_1 = require("./middlewares/security.middleware");
 const rateLimit_middleware_1 = require("./middlewares/rateLimit.middleware");
@@ -172,6 +173,8 @@ httpServer.listen(PORT, async () => {
         await seed_service_1.SeedService.runStartupSeeding();
         console.log("=".repeat(50) + "\n");
     }
+    // Start background workers
+    (0, email_queue_1.startEmailWorker)();
 });
 // Also export as default for ES modules
 exports.default = exports.app;

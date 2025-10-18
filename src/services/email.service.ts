@@ -92,10 +92,45 @@ export class EmailService {
   }
 
   /**
-   * Check if email service is properly configured
+   * Quick check if SMTP is configured
    */
-  isEmailServiceConfigured(): boolean {
+  public isEmailServiceConfigured(): boolean {
     return this.isConfigured;
+  }
+
+  private async delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Send email with retries (network hiccups like ETIMEDOUT)
+   */
+  private async sendWithRetry(
+    options: EmailOptions,
+    maxAttempts: number = 3
+  ): Promise<void> {
+    let attempt = 0;
+    let lastError: any;
+    while (attempt < maxAttempts) {
+      try {
+        await this.sendEmail(options);
+        return;
+      } catch (err: any) {
+        lastError = err;
+        attempt += 1;
+        const code = err?.message || "";
+        // Backoff delays: 5s, 15s (no delay after final attempt)
+        const delayMs = attempt === 1 ? 5000 : attempt === 2 ? 15000 : 0;
+        console.warn(
+          `Email send attempt ${attempt}/${maxAttempts} failed: ${code}.` +
+            (delayMs ? ` Retrying in ${Math.round(delayMs / 1000)}s...` : "")
+        );
+        if (delayMs) {
+          await this.delay(delayMs);
+        }
+      }
+    }
+    throw lastError;
   }
 
   /**
@@ -192,11 +227,14 @@ export class EmailService {
       </html>
     `;
 
-    await this.sendEmail({
-      to: data.email,
-      subject: "Verify Your Email Address - Nirapoth",
-      html,
-    });
+    await this.sendWithRetry(
+      {
+        to: data.email,
+        subject: "Verify Your Email Address - Nirapoth",
+        html,
+      },
+      3
+    );
   }
 
   /**

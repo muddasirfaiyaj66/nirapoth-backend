@@ -21,7 +21,8 @@ export interface AuthRequest extends Request {
   } & Record<string, any>;
   userId?: string;
   userRole?: UserRole;
-  cookies?: Record<string, string>;
+  // Align with Express's Request type; keep as any to avoid strict mismatch
+  cookies: any;
   // Ensure common Express fields are present in all build environments
   query: any;
   params: any;
@@ -30,7 +31,7 @@ export interface AuthRequest extends Request {
   method: string;
   path: string;
   originalUrl: string;
-  app?: any;
+  app: any;
 }
 
 // User registration interface
