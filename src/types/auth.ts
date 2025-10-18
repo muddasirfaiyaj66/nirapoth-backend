@@ -21,6 +21,16 @@ export interface AuthRequest extends Request {
   } & Record<string, any>;
   userId?: string;
   userRole?: UserRole;
+  cookies?: Record<string, string>;
+  // Ensure common Express fields are present in all build environments
+  query: any;
+  params: any;
+  body: any;
+  headers: any;
+  method: string;
+  path: string;
+  originalUrl: string;
+  app?: any;
 }
 
 // User registration interface
