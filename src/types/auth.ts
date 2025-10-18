@@ -1,4 +1,3 @@
-import { User, UserRole } from "@prisma/client";
 import type { Request } from "express";
 import type { User, UserRole } from "@prisma/client";
 
@@ -15,9 +14,7 @@ export interface JWTPayload {
 // Explicit AuthRequest to satisfy TS on all environments (Render/Express 5)
 export interface AuthRequest extends Request {
   // Augmented auth fields
-  user?:
-    | (User & { userId?: string })
-    | { id: string; email: string; role: UserRole };
+  user?: (User & { userId?: string }) | Record<string, any>;
   userId?: string;
   userRole?: UserRole;
   cookies?: Record<string, string>;
@@ -29,6 +26,7 @@ export interface AuthRequest extends Request {
   method: string;
   path: string;
   originalUrl: string;
+  app?: any;
 }
 
 // User registration interface

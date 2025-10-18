@@ -1,4 +1,3 @@
-import type { Request } from "express";
 import type { UserRole } from "@prisma/client";
 
 declare global {
@@ -15,7 +14,5 @@ declare global {
     }
   }
 }
-
-export interface AuthRequest extends Request {}
 
 export {};
