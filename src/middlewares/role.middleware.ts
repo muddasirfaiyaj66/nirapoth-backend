@@ -1,6 +1,9 @@
-import { Response, NextFunction } from "express";
+import * as express from "express";
 import { UserRole } from "@prisma/client";
 import { AuthenticatedRequest } from "../types/auth";
+
+type Response = express.Response;
+type NextFunction = express.NextFunction;
 
 export const roleMiddleware = (allowedRoles: UserRole[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {

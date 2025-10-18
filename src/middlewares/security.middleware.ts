@@ -1,8 +1,12 @@
-import { Request, Response, NextFunction } from "express";
+import * as express from "express";
 import helmet from "helmet";
 import cors from "cors";
 import { config } from "../config/env";
 import { AuthRequest } from "../types/auth";
+
+type Request = express.Request;
+type Response = express.Response;
+type NextFunction = express.NextFunction;
 
 /**
  * CORS configuration

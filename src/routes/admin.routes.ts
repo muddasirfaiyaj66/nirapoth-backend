@@ -1,9 +1,9 @@
-import { Router } from "express";
+import express from "express";
 import { authenticateToken } from "../middlewares/auth.middleware";
 import { adminOnly } from "../middlewares/security.middleware";
 import { AdminController } from "../controllers/admin.controller";
 
-const router = Router();
+const router = express.Router();
 
 // All admin routes require authentication and admin role
 router.use(authenticateToken);

@@ -1,10 +1,10 @@
-import { Router } from "express";
+import express from "express";
 import { AIIntegrationController } from "../controllers/aiIntegration.controller";
 import { authenticateToken } from "../middlewares/auth.middleware";
 import { roleMiddleware } from "../middlewares/role.middleware";
 import { UserRole } from "@prisma/client";
 
-const router = Router();
+const router = express.Router();
 
 // Apply authentication to all routes
 router.use(authenticateToken);

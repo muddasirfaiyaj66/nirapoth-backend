@@ -1,8 +1,8 @@
-import { Router } from "express";
+import express from "express";
 import VehicleController from "../controllers/vehicle.controller";
 import { authenticate } from "../middlewares/auth.middleware";
 
-const router = Router();
+const router = express.Router();
 
 // All routes require authentication
 router.use(authenticate);

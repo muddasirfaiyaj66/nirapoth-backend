@@ -1,10 +1,10 @@
-import { Router } from "express";
+import express from "express";
 import { PaymentController } from "../controllers/payment.controller";
 import { authenticateToken } from "../middlewares/auth.middleware";
 import { roleMiddleware } from "../middlewares/role.middleware";
 import { UserRole } from "@prisma/client";
 
-const router = Router();
+const router = express.Router();
 
 // SSLCommerz callback routes (public - no authentication required)
 router.post("/sslcommerz/success", PaymentController.handleSSLSuccess);

@@ -1,8 +1,8 @@
-import { Router } from "express";
+import express from "express";
 import { authenticateToken } from "../middlewares/auth.middleware";
 import { DashboardController } from "../controllers/dashboard.controller";
 
-const router = Router();
+const router = express.Router();
 
 // All dashboard routes require authentication
 router.use(authenticateToken);

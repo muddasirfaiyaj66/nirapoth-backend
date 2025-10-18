@@ -1,5 +1,8 @@
 import { User, UserRole } from "@prisma/client";
-import { Request } from "express";
+import * as express from "express";
+
+// Use express.Request instead of importing Request directly
+type Request = express.Request;
 
 // JWT Payload interface
 export interface JWTPayload {

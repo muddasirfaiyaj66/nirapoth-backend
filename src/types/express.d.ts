@@ -1,5 +1,7 @@
 import { User, UserRole } from "@prisma/client";
-import { Request } from "express";
+import * as express from "express";
+
+type Request = express.Request;
 
 // Augment Express Request type globally
 declare global {

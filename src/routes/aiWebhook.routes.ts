@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express from "express";
 import {
   fireDetectionWebhook,
   accidentDetectionWebhook,
@@ -6,7 +6,7 @@ import {
   webhookHealthCheck,
 } from "../controllers/aiWebhook.controller";
 
-const router = Router();
+const router = express.Router();
 
 /**
  * @route GET /api/ai-webhook/health
@@ -59,4 +59,3 @@ router.post("/accident-detection", accidentDetectionWebhook);
 router.post("/violation-detection", violationDetectionWebhook);
 
 export { router as aiWebhookRoutes };
-

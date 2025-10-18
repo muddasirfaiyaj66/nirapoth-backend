@@ -1,11 +1,11 @@
-import { Router } from "express";
+import express from "express";
 import {
   getCitizenStats,
   getCitizenAnalytics,
 } from "../controllers/citizen.controller";
 import { authenticateToken } from "../middlewares/auth.middleware";
 
-const router = Router();
+const router = express.Router();
 
 // All routes require authentication
 router.use(authenticateToken);

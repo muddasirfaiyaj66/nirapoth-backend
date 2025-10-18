@@ -1,7 +1,7 @@
-import { Router } from "express";
+import express from "express";
 import { TrafficController } from "../controllers/traffic.controller";
 
-const router = Router();
+const router = express.Router();
 
 /**
  * PUBLIC ENDPOINTS - No authentication required

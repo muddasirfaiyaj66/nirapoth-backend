@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express from "express";
 import {
   getUserProfile,
   updateProfile,
@@ -12,7 +12,7 @@ import {
 import { authenticateToken } from "../middlewares/auth.middleware";
 import { updateUserActivity } from "../middleware/userActivity.middleware";
 
-const router = Router();
+const router = express.Router();
 
 // Apply activity tracking to all profile routes
 router.use(authenticateToken, updateUserActivity);

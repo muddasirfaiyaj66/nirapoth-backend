@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express from "express";
 import {
   createIncident,
   getAllIncidents,
@@ -15,7 +15,7 @@ import {
 } from "../controllers/fireService.controller";
 import { authenticateToken } from "../middlewares/auth.middleware";
 
-const router = Router();
+const router = express.Router();
 
 // All routes require authentication
 router.use(authenticateToken);

@@ -1,7 +1,10 @@
-import { Response, NextFunction } from "express";
+import * as express from "express";
 import { JWTService } from "../services/jwt.service";
 import { AuthRequest } from "../types/auth";
 import { PrismaClient } from "@prisma/client";
+
+type Response = express.Response;
+type NextFunction = express.NextFunction;
 
 const prisma = new PrismaClient();
 

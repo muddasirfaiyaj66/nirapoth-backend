@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express from "express";
 import {
   createChatRoom,
   getMyChatRooms,
@@ -13,7 +13,7 @@ import {
 import { authenticateToken } from "../middlewares/auth.middleware";
 import { updateUserActivity } from "../middleware/userActivity.middleware";
 
-const router = Router();
+const router = express.Router();
 
 // Apply authentication and activity tracking to all chat routes
 router.use(authenticateToken, updateUserActivity);

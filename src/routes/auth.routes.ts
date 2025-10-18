@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express from "express";
 import {
   register,
   login,
@@ -16,7 +16,7 @@ import {
 } from "../middlewares/rateLimit.middleware";
 import { authenticateToken } from "../middlewares/auth.middleware";
 
-const router = Router();
+const router = express.Router();
 
 /**
  * @route   POST /api/auth/register

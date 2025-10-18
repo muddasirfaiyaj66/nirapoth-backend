@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express from "express";
 import {
   getPoliceStats,
   getPoliceAnalytics,
@@ -13,7 +13,7 @@ import {
 } from "../controllers/gemPenalty.controller";
 import { authenticateToken } from "../middlewares/auth.middleware";
 
-const router = Router();
+const router = express.Router();
 
 // All routes require authentication
 router.use(authenticateToken);

@@ -145,48 +145,31 @@ process.on("uncaughtException", (err) => {
     console.error("Uncaught Exception:", err);
     process.exit(1);
 });
-// Initialize Socket.IO (only in non-serverless environments)
-// Vercel serverless functions don't support Socket.IO (no persistent connections)
-if (!process.env.VERCEL) {
-    (0, socket_1.initializeSocket)(httpServer);
-    console.log("🔌 Socket.IO initialized");
-}
-else {
-    console.log("⚠️  Socket.IO disabled (Vercel serverless mode)");
-}
+// Initialize Socket.IO
+// Works on traditional servers (Render, Railway, Heroku, VPS)
+// Does NOT work on Vercel serverless
+(0, socket_1.initializeSocket)(httpServer);
 // Start cron job to mark inactive users as offline (every 5 minutes)
-// Only run in non-serverless environments
-if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
-    setInterval(async () => {
-        await (0, userActivity_middleware_1.markInactiveUsersOffline)();
-    }, 5 * 60 * 1000); // 5 minutes
-}
-// For Vercel serverless deployment, export the app
-// For traditional server deployment, start listening
-if (process.env.VERCEL) {
-    // Export for Vercel serverless
-    module.exports = exports.app;
-}
-else {
-    // Traditional server startup
-    httpServer.listen(PORT, async () => {
-        console.log(`🚀 Nirapoth Backend Server is running!`);
-        console.log(`📍 Environment: ${env_1.config.nodeEnv}`);
-        console.log(`🌐 Server: http://localhost:${PORT}`);
-        console.log(`🔌 Socket.IO: Ready for real-time connections`);
-        console.log(`🏥 Health Check: http://localhost:${PORT}/health`);
-        console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth`);
-        console.log(`👤 Profile API: http://localhost:${PORT}/api/profile`);
-        console.log(`📊 Dashboard API: http://localhost:${PORT}/api/dashboard`);
-        console.log(`⚙️  Admin API: http://localhost:${PORT}/api/admin`);
-        // Run database initialization and seeding only in development
-        // For production (Vercel), seeding happens during build time
-        if (env_1.config.nodeEnv === "development") {
-            console.log("\n" + "=".repeat(50));
-            await seed_service_1.SeedService.runStartupSeeding();
-            console.log("=".repeat(50) + "\n");
-        }
-    });
-}
+setInterval(async () => {
+    await (0, userActivity_middleware_1.markInactiveUsersOffline)();
+}, 5 * 60 * 1000); // 5 minutes
+// Start HTTP server
+httpServer.listen(PORT, async () => {
+    console.log(`🚀 Nirapoth Backend Server is running!`);
+    console.log(`📍 Environment: ${env_1.config.nodeEnv}`);
+    console.log(`🌐 Server: http://localhost:${PORT}`);
+    console.log(`🔌 Socket.IO: Ready for real-time connections`);
+    console.log(`🏥 Health Check: http://localhost:${PORT}/health`);
+    console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth`);
+    console.log(`👤 Profile API: http://localhost:${PORT}/api/profile`);
+    console.log(`📊 Dashboard API: http://localhost:${PORT}/api/dashboard`);
+    console.log(`⚙️  Admin API: http://localhost:${PORT}/api/admin`);
+    // Run database initialization and seeding
+    if (env_1.config.nodeEnv === "production") {
+        console.log("\n" + "=".repeat(50));
+        await seed_service_1.SeedService.runStartupSeeding();
+        console.log("=".repeat(50) + "\n");
+    }
+});
 // Also export as default for ES modules
 exports.default = exports.app;

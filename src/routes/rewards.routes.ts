@@ -1,11 +1,11 @@
-import { Router } from "express";
+import express from "express";
 import { RewardsController } from "../controllers/rewards.controller";
 import * as DebtController from "../controllers/debt.controller";
 import { authenticateToken } from "../middlewares/auth.middleware";
 import { roleMiddleware } from "../middlewares/role.middleware";
 import { UserRole } from "@prisma/client";
 
-const router = Router();
+const router = express.Router();
 
 // All routes require authentication
 router.use(authenticateToken);

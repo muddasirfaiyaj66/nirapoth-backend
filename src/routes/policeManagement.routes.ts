@@ -1,10 +1,10 @@
-import { Router } from "express";
+import express from "express";
 import { PoliceManagementController } from "../controllers/policeManagement.controller";
 import { CitizenReportsController } from "../controllers/citizenReports.controller";
 import { authenticateToken } from "../middlewares/auth.middleware";
 import { roleMiddleware } from "../middlewares/role.middleware";
 
-const router = Router();
+const router = express.Router();
 
 // All routes require authentication
 router.use(authenticateToken);

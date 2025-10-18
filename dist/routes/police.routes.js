@@ -1,11 +1,14 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.policeRoutes = void 0;
-const express_1 = require("express");
+const express_1 = __importDefault(require("express"));
 const police_controller_1 = require("../controllers/police.controller");
 const gemPenalty_controller_1 = require("../controllers/gemPenalty.controller");
 const auth_middleware_1 = require("../middlewares/auth.middleware");
-const router = (0, express_1.Router)();
+const router = express_1.default.Router();
 exports.policeRoutes = router;
 // All routes require authentication
 router.use(auth_middleware_1.authenticateToken);
