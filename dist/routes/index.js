@@ -3,7 +3,7 @@ import drivingLicenseRoutes from "./drivingLicense.routes";
 import vehicleAssignmentRoutes from "./vehicleAssignment.routes";
 import userProfileRoutes from "./userProfile.routes";
 import policeManagementRoutes from "./policeManagement.routes";
-import { vehicleRoutes } from "./vehicle.routes";
+import vehicleRoutes from "./vehicle.routes";
 import cameraRoutes from "./camera.routes";
 import rewardsRoutes from "./rewards.routes";
 const router = Router();

@@ -40,9 +40,10 @@ export interface AuthResponse {
 }
 
 // Authenticated request interface with user details
+// Note: This now matches the global Express.Request extension in express.d.ts
 export interface AuthenticatedRequest extends Request {
   user?: {
-    userId: string;
+    id: string;
     email: string;
     role: UserRole;
   };

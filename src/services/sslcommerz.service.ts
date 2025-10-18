@@ -629,19 +629,20 @@ export class SSLCommerzService {
           });
 
           // 2) Optional: write a payment transaction log row (idempotent upsert)
-          await tx.transactionLog
-            ?.create?.({
-              data: {
-                referenceId: debtId,
-                referenceType: "DEBT",
-                amount,
-                transactionId: bankTranId,
-                provider: "SSLCOMMERZ",
-                status: "COMPLETED",
-                meta: JSON.stringify({ cardType }),
-              },
-            })
-            .catch(() => {});
+          // TODO: Uncomment when transactionLog model is added to schema
+          // await tx.transactionLog
+          //   ?.create?.({
+          //     data: {
+          //       referenceId: debtId,
+          //       referenceType: "DEBT",
+          //       amount,
+          //       transactionId: bankTranId,
+          //       provider: "SSLCOMMERZ",
+          //       status: "COMPLETED",
+          //       meta: JSON.stringify({ cardType }),
+          //     },
+          //   })
+          //   .catch(() => {});
 
           // 3) Send confirmation email OUTSIDE transaction safety via finally
           // We resolve success regardless of email outcome
@@ -711,19 +712,20 @@ export class SSLCommerzService {
         }
 
         // Optional: log transaction
-        await tx.transactionLog
-          ?.create?.({
-            data: {
-              referenceId: payment.fineId || payment.id,
-              referenceType: payment.fine ? "FINE" : "PAYMENT",
-              amount,
-              transactionId: bankTranId,
-              provider: "SSLCOMMERZ",
-              status: "COMPLETED",
-              meta: JSON.stringify({ cardType }),
-            },
-          })
-          .catch(() => {});
+        // TODO: Uncomment when transactionLog model is added to schema
+        // await tx.transactionLog
+        //   ?.create?.({
+        //     data: {
+        //       referenceId: payment.fineId || payment.id,
+        //       referenceType: payment.fine ? "FINE" : "PAYMENT",
+        //       amount,
+        //       transactionId: bankTranId,
+        //       provider: "SSLCOMMERZ",
+        //       status: "COMPLETED",
+        //       meta: JSON.stringify({ cardType }),
+        //     },
+        //   })
+        //   .catch(() => {});
 
         return up;
       });

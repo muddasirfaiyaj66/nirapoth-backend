@@ -139,7 +139,6 @@ const ROLE_HIERARCHY = {
     ADMIN: 80,
     POLICE: 60,
     FIRE_SERVICE: 50,
-    DRIVER: 40,
     CITIZEN: 20,
 };
 /**

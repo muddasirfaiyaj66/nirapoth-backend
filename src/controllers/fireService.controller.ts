@@ -1,170 +1,134 @@
-import { Response } from "express";
+import { Request, Response } from "express";
+import { FireIncidentService } from "../services/fireIncident.service";
+import { FireTeamService } from "../services/fireTeam.service";
 import { AuthRequest } from "../types/auth";
-import { prisma } from "../lib/prisma";
 
-/**
- * Get fire service dashboard statistics
- * @route GET /api/fire-service/stats
- */
-export const getFireServiceStats = async (req: AuthRequest, res: Response) => {
+export const createIncident = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const incident = await FireIncidentService.createIncident({
+      ...req.body,
+      reporterUserId: req.user?.id,
+    });
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "User not authenticated",
-        statusCode: 401,
-      });
+    const io = (req.app as any).get("io");
+    if (io) {
+      io.to("fire-service").emit("fireEmergency", { incident });
     }
 
-    // Get emergency/accident reports
-    const totalEmergencies = await prisma.accident.count();
-
-    const activeEmergencies = await prisma.accident.count({
-      where: {
-        status: { in: ["PENDING", "IN_PROGRESS"] },
-      },
-    });
-
-    const resolvedEmergencies = await prisma.accident.count({
-      where: {
-        status: "RESOLVED",
-      },
-    });
-
-    // Get recent accidents/emergencies
-    const recentEmergencies = await prisma.accident.findMany({
-      include: {
-        location: {
-          select: {
-            area: true,
-            district: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    });
-
-    const stats = {
-      totalEmergencies,
-      activeEmergencies,
-      resolvedEmergencies,
-      recentEmergencies: recentEmergencies.map((e) => ({
-        id: e.id,
-        location: `${e.location?.area || ""}, ${
-          e.location?.district || ""
-        }`.trim(),
-        severity: e.severity,
-        status: e.status,
-        date: e.createdAt,
-        description: e.description || "No description",
-      })),
-    };
-
-    return res.status(200).json({
-      success: true,
-      data: stats,
-      statusCode: 200,
-    });
-  } catch (error) {
-    console.error("Error fetching fire service stats:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch statistics",
-      statusCode: 500,
-    });
+    res.status(201).json({ success: true, data: incident });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-/**
- * Get fire service analytics for dashboard graphs
- * @route GET /api/fire-service/analytics
- */
-export const getFireServiceAnalytics = async (
+export const getAllIncidents = async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await FireIncidentService.getAllIncidents(req.query);
+    res.json({ success: true, ...result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getIncidentById = async (req: AuthRequest, res: Response) => {
+  try {
+    const incident = await FireIncidentService.getIncidentById(req.params.id);
+    res.json({ success: true, data: incident });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateIncidentStatus = async (req: AuthRequest, res: Response) => {
+  try {
+    const incident = await FireIncidentService.updateIncidentStatus(
+      req.params.id,
+      req.body.status
+    );
+    res.json({ success: true, data: incident });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const assignTeamMembers = async (req: AuthRequest, res: Response) => {
+  try {
+    res.json({ success: true, message: "Assignment feature coming soon" });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deployEquipment = async (req: AuthRequest, res: Response) => {
+  try {
+    res.json({
+      success: true,
+      message: "Equipment deployment feature coming soon",
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getFireStatistics = async (req: AuthRequest, res: Response) => {
+  try {
+    const stats = await FireIncidentService.getStatistics();
+    res.json({ success: true, data: stats });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getAllTeamMembers = async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await FireTeamService.getAllTeamMembers();
+    res.json({ success: true, ...result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getAvailableTeamMembers = async (
   req: AuthRequest,
   res: Response
 ) => {
   try {
-    const userId = req.user?.id;
+    const members = await FireTeamService.getAvailableMembers();
+    res.json({ success: true, data: members });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "User not authenticated",
-        statusCode: 401,
-      });
-    }
+export const getTeamMemberById = async (req: AuthRequest, res: Response) => {
+  try {
+    const member = await FireTeamService.getTeamMemberById(req.params.id);
+    res.json({ success: true, data: member });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
-    // Emergencies by month (last 6 months)
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-    const emergenciesByMonth = await prisma.$queryRaw<
-      Array<{ month: string; count: bigint }>
-    >`
-      SELECT 
-        TO_CHAR(a."createdAt", 'Mon YYYY') as month,
-        COUNT(*)::bigint as count
-      FROM accidents a
-      WHERE a."createdAt" >= ${sixMonthsAgo}
-      GROUP BY TO_CHAR(a."createdAt", 'Mon YYYY'), DATE_TRUNC('month', a."createdAt")
-      ORDER BY DATE_TRUNC('month', a."createdAt") ASC
-    `;
-
-    // Emergencies by severity
-    const emergenciesBySeverity = await prisma.accident.groupBy({
-      by: ["severity"],
-      _count: {
-        id: true,
-      },
-    });
-
-    // Emergencies by status
-    const emergenciesByStatus = await prisma.accident.groupBy({
-      by: ["status"],
-      _count: {
-        id: true,
-      },
-    });
-
-    const analytics = {
-      emergenciesByMonth: emergenciesByMonth.map((e) => ({
-        month: e.month,
-        count: Number(e.count),
-      })),
-      emergenciesBySeverity: emergenciesBySeverity.map((e) => ({
-        severity: e.severity,
-        count: e._count.id,
-      })),
-      emergenciesByStatus: emergenciesByStatus.map((e) => ({
-        status: e.status,
-        count: e._count.id,
-      })),
-    };
-
-    console.log("\n====== BACKEND: SENDING FIRE SERVICE ANALYTICS ======");
-    console.log("User ID:", userId);
-    console.log(
-      "🔥 Emergencies by month:",
-      analytics.emergenciesByMonth.length
+export const updateTeamMemberStatus = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    const member = await FireTeamService.updateMemberStatus(
+      req.params.id,
+      req.body.status
     );
-    console.log("📊 By severity:", analytics.emergenciesBySeverity.length);
-    console.log("📈 By status:", analytics.emergenciesByStatus.length);
-    console.log("====================================================\n");
+    res.json({ success: true, data: member });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
-    return res.status(200).json({
-      success: true,
-      data: analytics,
-      statusCode: 200,
-    });
-  } catch (error) {
-    console.error("Error fetching fire service analytics:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch analytics",
-      statusCode: 500,
-    });
+export const getTeamStatistics = async (req: AuthRequest, res: Response) => {
+  try {
+    const stats = await FireTeamService.getTeamStatistics();
+    res.json({ success: true, data: stats });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -52,8 +52,8 @@ export class UserProfileService {
           where: { isActive: true },
           orderBy: { createdAt: "desc" },
         },
-        vehicleAssignments: {
-          where: { isActive: true },
+        ownerAssignments: {
+          where: { status: "ACTIVE" },
           include: {
             vehicle: {
               select: {
@@ -210,8 +210,8 @@ export class UserProfileService {
         | "HEAVY_VEHICLE"
         | "PSV"
         | "GOODS_VEHICLE";
-      issueDate: Date;
-      expiryDate: Date;
+      issueDate?: Date;
+      expiryDate?: Date;
       issuingAuthority: string;
     }
   ) {
@@ -224,12 +224,37 @@ export class UserProfileService {
       throw new Error("Driving license number already exists");
     }
 
-    return await prisma.drivingLicense.create({
+    // Create the driving license
+    const license = await prisma.drivingLicense.create({
       data: {
-        ...licenseData,
-        citizenId: userId,
+        licenseNo: licenseData.licenseNo,
+        category: licenseData.category,
+        issueDate: licenseData.issueDate || new Date(),
+        expiryDate: licenseData.expiryDate || new Date(),
+        issuingAuthority: licenseData.issuingAuthority,
+        citizen: {
+          connect: { id: userId },
+        },
       },
     });
+
+    // Create CitizenGem record if it doesn't exist
+    // Citizens get 10 gems when they add their driving license
+    const existingGem = await prisma.citizenGem.findUnique({
+      where: { citizenId: userId },
+    });
+
+    if (!existingGem) {
+      await prisma.citizenGem.create({
+        data: {
+          citizenId: userId,
+          amount: 10, // Citizens start with 10 gems when they add driving license
+        },
+      });
+      console.log(`✅ Created CitizenGem (10 gems) for user ${userId}`);
+    }
+
+    return license;
   }
 
   /**
@@ -248,9 +273,8 @@ export class UserProfileService {
       }),
       prisma.vehicleAssignment.count({
         where: {
-          citizenId: userId,
-          isActive: true,
-          OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
+          driverId: userId,
+          status: "ACTIVE",
         },
       }),
       prisma.violation.count({

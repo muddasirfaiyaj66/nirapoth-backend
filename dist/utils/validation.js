@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { UserRole } from "@prisma/client";
 // User registration validation schema
-export const registerSchema = z.object({
+export const registerSchema = z
+    .object({
     firstName: z
         .string()
         .min(2, "First name must be at least 2 characters long")
@@ -29,12 +30,24 @@ export const registerSchema = z.object({
     nidNo: z
         .string()
         .regex(/^\d{10}$|^\d{17}$/, "NID must be either 10 or 17 digits")
-        .optional(),
+        .optional()
+        .or(z.literal("")), // Allow empty string from frontend
     birthCertificateNo: z
         .string()
         .regex(/^\d{17}$/, "Birth Certificate Number must be 17 digits")
-        .optional(),
+        .optional()
+        .or(z.literal("")), // Allow empty string from frontend
     role: z.nativeEnum(UserRole).optional().default(UserRole.CITIZEN),
+})
+    .strip() // Strip unknown fields like confirmPassword from frontend
+    .refine((data) => {
+    // Check if at least one valid ID is provided
+    const nidValid = data.nidNo && /^\d{10}$|^\d{17}$/.test(data.nidNo);
+    const bcnValid = data.birthCertificateNo && /^\d{17}$/.test(data.birthCertificateNo);
+    return nidValid || bcnValid;
+}, {
+    message: "Either a valid NID (10 or 17 digits) or Birth Certificate Number (17 digits) is required",
+    path: ["nidNo"],
 });
 // User login validation schema
 export const loginSchema = z.object({
@@ -104,6 +117,7 @@ export const updateProfileSchema = z.object({
         .regex(/^[0-9+\-\s()]+$/, "Please provide a valid phone number")
         .min(10, "Phone number must be at least 10 characters")
         .max(20, "Phone number must not exceed 20 characters")
+        .or(z.literal(""))
         .optional(),
     emergencyContact: z.string().optional(),
     emergencyContactPhone: z
@@ -111,18 +125,21 @@ export const updateProfileSchema = z.object({
         .regex(/^[0-9+\-\s()]+$/, "Please provide a valid phone number")
         .min(10, "Phone number must be at least 10 characters")
         .max(20, "Phone number must not exceed 20 characters")
+        .or(z.literal(""))
         .optional(),
     // Present Address
     presentAddress: z.string().optional(),
     presentCity: z.string().optional(),
     presentDistrict: z.string().optional(),
     presentDivision: z.string().optional(),
+    presentUpazila: z.string().optional(),
     presentPostalCode: z.string().optional(),
     // Permanent Address
     permanentAddress: z.string().optional(),
     permanentCity: z.string().optional(),
     permanentDistrict: z.string().optional(),
     permanentDivision: z.string().optional(),
+    permanentUpazila: z.string().optional(),
     permanentPostalCode: z.string().optional(),
     // Professional Information (for police/fire service)
     designation: z.string().optional(),

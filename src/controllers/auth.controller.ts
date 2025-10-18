@@ -68,8 +68,15 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         password: hashedPassword,
         phone: validatedData.phone,
         role: "CITIZEN", // Force CITIZEN role for all new registrations
-        nidNo: validatedData.nidNo,
-        birthCertificateNo: validatedData.birthCertificateNo,
+        nidNo:
+          validatedData.nidNo && validatedData.nidNo.trim() !== ""
+            ? validatedData.nidNo
+            : null,
+        birthCertificateNo:
+          validatedData.birthCertificateNo &&
+          validatedData.birthCertificateNo.trim() !== ""
+            ? validatedData.birthCertificateNo
+            : null,
         emailVerificationToken: autoVerifyInDev ? null : hashedToken,
         emailVerificationExpires: autoVerifyInDev ? null : tokenExpires,
         isEmailVerified: autoVerifyInDev, // Auto-verify in dev mode without email config
@@ -90,6 +97,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         updatedAt: true,
       },
     });
+
+    // NOTE: CitizenGem is NOT created here
+    // It will be created automatically when user adds their driving license
 
     // Send verification email (skip in dev mode without email config)
     if (!autoVerifyInDev) {
@@ -196,11 +206,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         presentCity: true,
         presentDistrict: true,
         presentDivision: true,
+        presentUpazila: true,
         presentPostalCode: true,
         permanentAddress: true,
         permanentCity: true,
         permanentDistrict: true,
         permanentDivision: true,
+        permanentUpazila: true,
         permanentPostalCode: true,
         drivingLicenseNo: true,
         drivingLicenseIssueDate: true,
@@ -305,11 +317,19 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Remove password from user object
     const { password, ...userWithoutPassword } = user;
 
+    // Add default values for new fields if they don't exist
+    const userResponse = {
+      ...userWithoutPassword,
+      isOnline: (user as any).isOnline ?? false,
+      lastSeenAt: (user as any).lastSeenAt ?? null,
+      lastActivityAt: (user as any).lastActivityAt ?? null,
+    };
+
     const response: SuccessResponse<AuthResponse> = {
       success: true,
       message: "Login successful",
       data: {
-        user: userWithoutPassword,
+        user: userResponse,
         accessToken,
         refreshToken,
       },
@@ -344,6 +364,20 @@ export const login = async (req: Request, res: Response): Promise<void> => {
  */
 export const logout = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Mark user as offline if authenticated
+    if (req.user?.id) {
+      await prisma.user.update({
+        where: { id: req.user.id },
+        data: {
+          isOnline: false,
+          lastSeenAt: new Date(),
+        },
+      }).catch((err) => {
+        console.error("Failed to mark user offline:", err);
+        // Don't fail logout if this fails
+      });
+    }
+
     // Clear cookies
     res.clearCookie("accessToken");
     res.clearCookie("refreshToken");
@@ -432,11 +466,13 @@ export const refreshToken = async (
         presentCity: true,
         presentDistrict: true,
         presentDivision: true,
+        presentUpazila: true,
         presentPostalCode: true,
         permanentAddress: true,
         permanentCity: true,
         permanentDistrict: true,
         permanentDivision: true,
+        permanentUpazila: true,
         permanentPostalCode: true,
         drivingLicenseNo: true,
         drivingLicenseIssueDate: true,
@@ -479,11 +515,19 @@ export const refreshToken = async (
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
+    // Add default values for new fields if they don't exist
+    const userResponse = {
+      ...user,
+      isOnline: (user as any).isOnline ?? false,
+      lastSeenAt: (user as any).lastSeenAt ?? null,
+      lastActivityAt: (user as any).lastActivityAt ?? null,
+    };
+
     const response: SuccessResponse<AuthResponse> = {
       success: true,
       message: "Tokens refreshed successfully",
       data: {
-        user,
+        user: userResponse,
         accessToken,
         refreshToken: newRefreshToken,
       },

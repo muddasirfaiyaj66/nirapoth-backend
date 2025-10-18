@@ -108,7 +108,7 @@ export class RewardsController {
             });
             // ==========================================
             // 🚀 AUTO-CLEARANCE: If balance is positive AND debt exists
-            // Automatically clear debt from balance
+            // Automatically clear debt from balance (without creating negatives)
             // ==========================================
             let finalBalance = currentBalance;
             let finalOutstandingDebt = totalOutstandingDebt;
@@ -141,7 +141,7 @@ export class RewardsController {
                 }
                 else {
                     // User has partial payment (balance < debt)
-                    finalOutstandingDebt = totalOutstandingDebt - currentBalance;
+                    finalOutstandingDebt = Math.max(0, totalOutstandingDebt - currentBalance);
                     finalBalance = 0;
                     // Update debt with partial payment
                     for (const debt of outstandingDebts) {

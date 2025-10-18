@@ -32,7 +32,7 @@ export const getCitizenStats = async (req, res) => {
             prisma.violation.count({
                 where: {
                     vehicle: { ownerId: userId },
-                    status: { in: ["PENDING", "UNDER_REVIEW"] },
+                    status: { in: ["PENDING", "CONFIRMED"] },
                 },
             }),
         ]);
@@ -278,9 +278,13 @@ export const getCitizenAnalytics = async (req, res) => {
             })),
             ...recentRewards.map((reward) => ({
                 id: reward.id,
-                type: "reward",
+                // Show deductions/penalties as negative-type entries in UI
+                type: ["PENALTY", "DEDUCTION", "DEBT_PAYMENT"].includes(reward.type)
+                    ? "fine"
+                    : "reward",
                 description: reward.description || "Reward",
-                amount: reward.amount,
+                // Use absolute for display; sign is driven by type in UI
+                amount: Math.abs(Number(reward.amount)),
                 status: reward.status,
                 date: reward.createdAt,
             })),
@@ -294,6 +298,30 @@ export const getCitizenAnalytics = async (req, res) => {
         const approvedReports = await prisma.citizenReport.count({
             where: { citizenId: userId, status: "APPROVED" },
         });
+        // Get citizen reports by month (last 6 months)
+        const reportsByMonth = await prisma.$queryRaw `
+      SELECT 
+        TO_CHAR(cr."createdAt", 'Mon YYYY') as month,
+        COUNT(*)::bigint as total,
+        COUNT(CASE WHEN cr.status = 'APPROVED' THEN 1 END)::bigint as approved,
+        COUNT(CASE WHEN cr.status = 'REJECTED' THEN 1 END)::bigint as rejected,
+        COUNT(CASE WHEN cr.status = 'PENDING' THEN 1 END)::bigint as pending
+      FROM citizen_reports cr
+      WHERE cr."citizenId" = ${userId}
+        AND cr."createdAt" >= ${sixMonthsAgo}
+      GROUP BY TO_CHAR(cr."createdAt", 'Mon YYYY'), DATE_TRUNC('month', cr."createdAt")
+      ORDER BY DATE_TRUNC('month', cr."createdAt") ASC
+    `;
+        // Get citizen reports by violation type
+        const reportsByType = await prisma.$queryRaw `
+      SELECT 
+        cr."violationType" as type,
+        COUNT(*)::bigint as count
+      FROM citizen_reports cr
+      WHERE cr."citizenId" = ${userId}
+      GROUP BY cr."violationType"
+      ORDER BY count DESC
+    `;
         const analytics = {
             // Summary
             currentBalance,
@@ -322,6 +350,18 @@ export const getCitizenAnalytics = async (req, res) => {
                 type: v.type,
                 count: Number(v.count),
             })),
+            // Citizen Reports Analytics (NEW)
+            citizenReportsByMonth: reportsByMonth.map((r) => ({
+                month: r.month,
+                total: Number(r.total),
+                approved: Number(r.approved),
+                rejected: Number(r.rejected),
+                pending: Number(r.pending),
+            })),
+            citizenReportsByType: reportsByType.map((r) => ({
+                type: r.type,
+                count: Number(r.count),
+            })),
             recentActivity,
         };
         // 📊 LOG BACKEND RESPONSE DATA
@@ -336,6 +376,8 @@ export const getCitizenAnalytics = async (req, res) => {
         console.log("💵 Fines Analytics:", analytics.finesAnalytics);
         console.log("📊 Rewards Over Time:", analytics.rewardsOverTime);
         console.log("🏷️ Violations By Type:", analytics.violationsByType);
+        console.log("📋 Citizen Reports By Month:", analytics.citizenReportsByMonth);
+        console.log("🏷️ Citizen Reports By Type:", analytics.citizenReportsByType);
         console.log("⏰ Recent Activity count:", analytics.recentActivity.length);
         console.log("================================================\n");
         return res.status(200).json({

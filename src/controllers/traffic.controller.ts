@@ -1,5 +1,3 @@
-declare((strict_types = 1));
-
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
@@ -33,7 +31,7 @@ export class TrafficController {
         res.status(400).json({
           success: false,
           message: "Invalid parameters",
-          errors: validation.error.errors,
+          errors: validation.error.issues,
         });
         return;
       }
@@ -105,7 +103,7 @@ export class TrafficController {
         res.status(400).json({
           success: false,
           message: "Invalid parameters",
-          errors: validation.error.errors,
+          errors: validation.error.issues,
         });
         return;
       }
@@ -135,8 +133,9 @@ export class TrafficController {
           createdAt: {
             gte: sixMonthsAgo,
           },
+          // Filter by rule codes for common traffic violations
           rule: {
-            violationType: {
+            code: {
               in: [
                 "OVER_SPEEDING",
                 "WRONG_SIDE_DRIVING",
@@ -190,7 +189,7 @@ export class TrafficController {
         res.status(400).json({
           success: false,
           message: "Invalid route parameters",
-          errors: validation.error.errors,
+          errors: validation.error.issues,
         });
         return;
       }

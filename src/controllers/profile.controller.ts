@@ -35,8 +35,8 @@ export const getUserProfile = async (
           where: { isActive: true },
           orderBy: { createdAt: "desc" },
         },
-        vehicleAssignments: {
-          where: { isActive: true },
+        ownerAssignments: {
+          where: { status: "ACTIVE" },
           include: {
             vehicle: {
               select: {
@@ -130,9 +130,8 @@ export const getUserStatistics = async (
       }),
       prisma.vehicleAssignment.count({
         where: {
-          citizenId: userId,
-          isActive: true,
-          OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
+          driverId: userId,
+          status: "ACTIVE",
         },
       }),
       prisma.violation.count({
@@ -415,19 +414,29 @@ export const updateProfile = async (
       return;
     }
 
-    // Check if NID or Birth Certificate Number already exists (if provided)
-    if (validatedData.nidNo || validatedData.birthCertificateNo) {
+    // Check if NID, Birth Certificate Number, or Badge Number already exists (if provided and not empty)
+    // Only check non-empty values for uniqueness
+    const hasNonEmptyNid =
+      validatedData.nidNo && validatedData.nidNo.trim() !== "";
+    const hasNonEmptyBirthCert =
+      validatedData.birthCertificateNo &&
+      validatedData.birthCertificateNo.trim() !== "";
+    const hasNonEmptyBadgeNo =
+      validatedData.badgeNo && validatedData.badgeNo.trim() !== "";
+
+    if (hasNonEmptyNid || hasNonEmptyBirthCert || hasNonEmptyBadgeNo) {
       const existingUser = await prisma.user.findFirst({
         where: {
           AND: [
             { id: { not: userId } },
             {
               OR: [
-                ...(validatedData.nidNo
-                  ? [{ nidNo: validatedData.nidNo }]
-                  : []),
-                ...(validatedData.birthCertificateNo
+                ...(hasNonEmptyNid ? [{ nidNo: validatedData.nidNo }] : []),
+                ...(hasNonEmptyBirthCert
                   ? [{ birthCertificateNo: validatedData.birthCertificateNo }]
+                  : []),
+                ...(hasNonEmptyBadgeNo
+                  ? [{ badgeNo: validatedData.badgeNo }]
                   : []),
               ],
             },
@@ -436,20 +445,61 @@ export const updateProfile = async (
       });
 
       if (existingUser) {
+        // Determine which field caused the conflict
+        let conflictField = "";
+        if (hasNonEmptyNid && existingUser.nidNo === validatedData.nidNo) {
+          conflictField = "NID";
+        } else if (
+          hasNonEmptyBirthCert &&
+          existingUser.birthCertificateNo === validatedData.birthCertificateNo
+        ) {
+          conflictField = "Birth Certificate Number";
+        } else if (
+          hasNonEmptyBadgeNo &&
+          existingUser.badgeNo === validatedData.badgeNo
+        ) {
+          conflictField = "Badge Number";
+        }
+
         res.status(409).json({
           success: false,
-          message: "NID or Birth Certificate Number already exists",
+          message: `${
+            conflictField || "NID, Birth Certificate Number, or Badge Number"
+          } already exists`,
           statusCode: 409,
         });
         return;
       }
     }
 
+    // Clean the validated data - convert empty strings to null for unique constraint fields
+    const updateData: any = {};
+    const uniqueFields = ["badgeNo", "nidNo", "birthCertificateNo"];
+
+    Object.entries(validatedData).forEach(([key, value]) => {
+      if (value === undefined) {
+        // Skip undefined values
+        return;
+      }
+
+      if (value === "" || value === null) {
+        // For unique constraint fields, convert empty string to null
+        if (uniqueFields.includes(key)) {
+          updateData[key] = null;
+        }
+        // For other fields, skip empty strings (don't update)
+        return;
+      }
+
+      // Include non-empty values
+      updateData[key] = value;
+    });
+
     // Update user profile
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
-        ...validatedData,
+        ...updateData,
         updatedAt: new Date(),
       },
       include: {
@@ -458,8 +508,8 @@ export const updateProfile = async (
           where: { isActive: true },
           orderBy: { createdAt: "desc" },
         },
-        vehicleAssignments: {
-          where: { isActive: true },
+        ownerAssignments: {
+          where: { status: "ACTIVE" },
           include: {
             vehicle: {
               select: {
@@ -637,11 +687,19 @@ export const uploadProfileImage = async (
       return;
     }
 
+    // Log request body for debugging
+    console.log("📸 Upload profile image request:", {
+      userId,
+      body: req.body,
+      headers: req.headers["content-type"],
+    });
+
     // For now, we'll expect the image URL to be provided in the request body
     // In a real application, you would handle file upload here
     const { imageUrl } = req.body;
 
     if (!imageUrl) {
+      console.error("❌ No imageUrl provided in request body");
       res.status(400).json({
         success: false,
         message: "Image URL is required",
@@ -649,6 +707,19 @@ export const uploadProfileImage = async (
       });
       return;
     }
+
+    // Validate imageUrl format
+    if (typeof imageUrl !== "string" || imageUrl.trim() === "") {
+      console.error("❌ Invalid imageUrl format:", imageUrl);
+      res.status(400).json({
+        success: false,
+        message: "Invalid image URL format",
+        statusCode: 400,
+      });
+      return;
+    }
+
+    console.log("✅ Updating profile image for user:", userId);
 
     // Update user profile image
     const updatedUser = await prisma.user.update({
@@ -675,6 +746,8 @@ export const uploadProfileImage = async (
       },
     });
 
+    console.log("✅ Profile image updated successfully");
+
     const response: SuccessResponse = {
       success: true,
       message: "Profile image updated successfully",
@@ -684,10 +757,15 @@ export const uploadProfileImage = async (
 
     res.status(200).json(response);
   } catch (error) {
-    console.error("Upload profile image error:", error);
+    console.error("❌ Upload profile image error:", error);
+    console.error("Error details:", {
+      name: (error as Error).name,
+      message: (error as Error).message,
+      stack: (error as Error).stack,
+    });
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: error instanceof Error ? error.message : "Internal server error",
       statusCode: 500,
     });
   }

@@ -27,13 +27,8 @@ export class PoliceManagementService {
                 isEmailVerified: true, // Auto-verify for police officers created by admin
             },
         });
-        // Initialize citizen gem record (police can also drive)
-        await prisma.citizenGem.create({
-            data: {
-                citizenId: officer.id,
-                amount: 20, // Police officers start with more gems
-            },
-        });
+        // NOTE: Police officers don't need CitizenGem
+        // Only citizens with driving licenses need gems
         return officer;
     }
     /**

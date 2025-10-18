@@ -340,6 +340,42 @@ export const getCitizenAnalytics = async (req: AuthRequest, res: Response) => {
       where: { citizenId: userId, status: "APPROVED" },
     });
 
+    // Get citizen reports by month (last 6 months)
+    const reportsByMonth = await prisma.$queryRaw<
+      Array<{
+        month: string;
+        total: bigint;
+        approved: bigint;
+        rejected: bigint;
+        pending: bigint;
+      }>
+    >`
+      SELECT 
+        TO_CHAR(cr."createdAt", 'Mon YYYY') as month,
+        COUNT(*)::bigint as total,
+        COUNT(CASE WHEN cr.status = 'APPROVED' THEN 1 END)::bigint as approved,
+        COUNT(CASE WHEN cr.status = 'REJECTED' THEN 1 END)::bigint as rejected,
+        COUNT(CASE WHEN cr.status = 'PENDING' THEN 1 END)::bigint as pending
+      FROM citizen_reports cr
+      WHERE cr."citizenId" = ${userId}
+        AND cr."createdAt" >= ${sixMonthsAgo}
+      GROUP BY TO_CHAR(cr."createdAt", 'Mon YYYY'), DATE_TRUNC('month', cr."createdAt")
+      ORDER BY DATE_TRUNC('month', cr."createdAt") ASC
+    `;
+
+    // Get citizen reports by violation type
+    const reportsByType = await prisma.$queryRaw<
+      Array<{ type: string; count: bigint }>
+    >`
+      SELECT 
+        cr."violationType" as type,
+        COUNT(*)::bigint as count
+      FROM citizen_reports cr
+      WHERE cr."citizenId" = ${userId}
+      GROUP BY cr."violationType"
+      ORDER BY count DESC
+    `;
+
     const analytics = {
       // Summary
       currentBalance,
@@ -373,6 +409,20 @@ export const getCitizenAnalytics = async (req: AuthRequest, res: Response) => {
         count: Number(v.count),
       })),
 
+      // Citizen Reports Analytics (NEW)
+      citizenReportsByMonth: reportsByMonth.map((r) => ({
+        month: r.month,
+        total: Number(r.total),
+        approved: Number(r.approved),
+        rejected: Number(r.rejected),
+        pending: Number(r.pending),
+      })),
+
+      citizenReportsByType: reportsByType.map((r) => ({
+        type: r.type,
+        count: Number(r.count),
+      })),
+
       recentActivity,
     };
 
@@ -388,6 +438,11 @@ export const getCitizenAnalytics = async (req: AuthRequest, res: Response) => {
     console.log("💵 Fines Analytics:", analytics.finesAnalytics);
     console.log("📊 Rewards Over Time:", analytics.rewardsOverTime);
     console.log("🏷️ Violations By Type:", analytics.violationsByType);
+    console.log(
+      "📋 Citizen Reports By Month:",
+      analytics.citizenReportsByMonth
+    );
+    console.log("🏷️ Citizen Reports By Type:", analytics.citizenReportsByType);
     console.log("⏰ Recent Activity count:", analytics.recentActivity.length);
     console.log("================================================\n");
 

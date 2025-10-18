@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../utils/password";
 import { config } from "../config/env";
+import { populateAllBDGeoData } from "./bdGeo.service";
 
 const prisma = new PrismaClient();
 
@@ -209,12 +210,37 @@ export class SeedService {
       // Seed default rules
       await this.seedDefaultRules();
 
+      // Populate Bangladesh geographical data (divisions, districts, upazilas)
+      await this.populateBDGeoData();
+
       console.log("✅ Database initialization completed successfully!");
     } catch (error) {
       console.error("❌ Database initialization failed:", error);
       throw error;
     } finally {
       await prisma.$disconnect();
+    }
+  }
+
+  /**
+   * Populate Bangladesh geographical data
+   */
+  static async populateBDGeoData(): Promise<void> {
+    try {
+      // Check if data already exists
+      const divisionCount = await prisma.division.count();
+
+      if (divisionCount > 0) {
+        console.log("✅ Bangladesh geographical data already exists");
+        return;
+      }
+
+      console.log("🗺️  Populating Bangladesh geographical data...");
+      await populateAllBDGeoData();
+      console.log("✅ Bangladesh geographical data populated successfully");
+    } catch (error) {
+      console.error("❌ Error populating BD geo data:", error);
+      throw error;
     }
   }
 

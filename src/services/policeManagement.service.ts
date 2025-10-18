@@ -11,7 +11,7 @@ export interface CreatePoliceOfficerData {
   designation: string;
   badgeNo: string;
   rank: string;
-  joiningDate: Date;
+  joiningDate?: Date;
   stationId?: string;
   specialization?: string;
   presentAddress?: string;
@@ -54,13 +54,8 @@ export class PoliceManagementService {
       },
     });
 
-    // Initialize citizen gem record (police can also drive)
-    await prisma.citizenGem.create({
-      data: {
-        citizenId: officer.id,
-        amount: 20, // Police officers start with more gems
-      },
-    });
+    // NOTE: Police officers don't need CitizenGem
+    // Only citizens with driving licenses need gems
 
     return officer;
   }

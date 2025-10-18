@@ -893,9 +893,156 @@ export class AdminController {
   }
 
   static async createUser(req: AuthRequest, res: Response): Promise<void> {
-    res
-      .status(200)
-      .json({ success: true, message: "Create user - placeholder", data: {} });
+    try {
+      const {
+        firstName,
+        lastName,
+        email,
+        phone,
+        role,
+        password,
+        nidNo,
+        birthCertificateNo,
+      } = req.body;
+      const currentUser = req.user;
+
+      // Validate required fields
+      if (!firstName || !lastName || !email || !phone || !role || !password) {
+        res.status(400).json({
+          success: false,
+          message: "Missing required fields",
+          statusCode: 400,
+        });
+        return;
+      }
+
+      // Validate role
+      const validRoles = [
+        "CITIZEN",
+        "POLICE",
+        "FIRE_SERVICE",
+        "CITY_CORPORATION",
+        "ADMIN",
+        "SUPER_ADMIN",
+      ];
+      if (!validRoles.includes(role)) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid role specified",
+          statusCode: 400,
+        });
+        return;
+      }
+
+      // Check if current user can create users with this role
+      if (
+        currentUser?.role === "ADMIN" &&
+        (role === "SUPER_ADMIN" || role === "ADMIN")
+      ) {
+        res.status(403).json({
+          success: false,
+          message: "You don't have permission to create users with this role",
+          statusCode: 403,
+        });
+        return;
+      }
+
+      // Check if email already exists
+      const existingUser = await prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (existingUser) {
+        res.status(400).json({
+          success: false,
+          message: "Email already exists",
+          statusCode: 400,
+        });
+        return;
+      }
+
+      // Check if NID already exists (if provided)
+      if (nidNo) {
+        const existingNid = await prisma.user.findUnique({
+          where: { nidNo },
+        });
+
+        if (existingNid) {
+          res.status(400).json({
+            success: false,
+            message: "NID number already exists",
+            statusCode: 400,
+          });
+          return;
+        }
+      }
+
+      // Check if birth certificate already exists (if provided)
+      if (birthCertificateNo) {
+        const existingBirthCert = await prisma.user.findUnique({
+          where: { birthCertificateNo },
+        });
+
+        if (existingBirthCert) {
+          res.status(400).json({
+            success: false,
+            message: "Birth certificate number already exists",
+            statusCode: 400,
+          });
+          return;
+        }
+      }
+
+      // Hash password
+      const bcrypt = require("bcrypt");
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create user
+      const newUser = await prisma.user.create({
+        data: {
+          firstName,
+          lastName,
+          email,
+          phone,
+          role,
+          password: hashedPassword,
+          nidNo: nidNo || null,
+          birthCertificateNo: birthCertificateNo || null,
+          isEmailVerified: false,
+          isActive: true,
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          role: true,
+          nidNo: true,
+          birthCertificateNo: true,
+          isEmailVerified: true,
+          isActive: true,
+          createdAt: true,
+        },
+      });
+
+      // NOTE: CitizenGem is NOT created here for admin-created users
+      // It will be created automatically when citizen adds their driving license
+
+      res.status(201).json({
+        success: true,
+        message: "User created successfully",
+        data: newUser,
+        statusCode: 201,
+      });
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+        statusCode: 500,
+      });
+    }
   }
 
   static async updateUserRole(req: AuthRequest, res: Response): Promise<void> {

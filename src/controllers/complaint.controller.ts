@@ -11,6 +11,7 @@ const createComplaintSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
   priority: z.enum(["HIGH", "MEDIUM", "LOW"]).optional(),
+  evidenceUrls: z.array(z.string().url()).optional(),
   locationData: z.object({
     latitude: z.number(),
     longitude: z.number(),
@@ -226,6 +227,7 @@ export class ComplaintController {
           description: validatedData.description,
           priority: validatedData.priority || "MEDIUM",
           status: "PENDING",
+          evidenceUrls: validatedData.evidenceUrls || [],
           complainerId: userId,
           locationId: location.id,
         },

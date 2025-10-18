@@ -315,4 +315,207 @@ export class NotificationService {
       priority: "URGENT",
     });
   }
+
+  // ========== DRIVER MARKETPLACE NOTIFICATIONS ==========
+
+  /**
+   * Notify driver that their profile was created
+   */
+  static async notifyDriverProfileCreated(driverId: string): Promise<void> {
+    await this.sendNotification({
+      userId: driverId,
+      title: "Driver Profile Created",
+      message:
+        "Your driver profile is now live! Vehicle owners can find and contact you.",
+      type: "INFO",
+      priority: "NORMAL",
+      actionUrl: "/dashboard/citizen/driver-profile",
+      actionLabel: "View Profile",
+    });
+  }
+
+  /**
+   * Notify driver that they received a chat request
+   */
+  static async notifyChatRequestReceived(
+    driverId: string,
+    citizenName: string,
+    roomId: string
+  ): Promise<void> {
+    await this.sendNotification({
+      userId: driverId,
+      title: "New Chat Request",
+      message: `${citizenName} wants to chat with you about a driving opportunity.`,
+      type: "INFO",
+      priority: "HIGH",
+      actionUrl: `/dashboard/citizen/chats/${roomId}`,
+      actionLabel: "View Chat",
+      relatedEntityType: "ChatRoom",
+      relatedEntityId: roomId,
+    });
+  }
+
+  /**
+   * Notify citizen that driver accepted chat request
+   */
+  static async notifyChatRequestAccepted(
+    citizenId: string,
+    driverName: string,
+    roomId: string
+  ): Promise<void> {
+    await this.sendNotification({
+      userId: citizenId,
+      title: "Chat Request Accepted",
+      message: `${driverName} accepted your chat request. You can now start chatting.`,
+      type: "INFO",
+      priority: "HIGH",
+      actionUrl: `/dashboard/citizen/chats/${roomId}`,
+      actionLabel: "Start Chat",
+      relatedEntityType: "ChatRoom",
+      relatedEntityId: roomId,
+    });
+  }
+
+  /**
+   * Notify citizen that driver rejected chat request
+   */
+  static async notifyChatRequestRejected(
+    citizenId: string,
+    driverName: string
+  ): Promise<void> {
+    await this.sendNotification({
+      userId: citizenId,
+      title: "Chat Request Declined",
+      message: `${driverName} declined your chat request.`,
+      type: "WARNING",
+      priority: "NORMAL",
+      actionUrl: "/dashboard/citizen/find-driver",
+      actionLabel: "Find Other Drivers",
+    });
+  }
+
+  /**
+   * Notify user that they received a new message
+   */
+  static async notifyNewMessage(
+    recipientId: string,
+    senderName: string,
+    roomId: string
+  ): Promise<void> {
+    await this.sendNotification({
+      userId: recipientId,
+      title: "New Message",
+      message: `${senderName} sent you a message.`,
+      type: "INFO",
+      priority: "NORMAL",
+      actionUrl: `/dashboard/citizen/chats/${roomId}`,
+      actionLabel: "View Message",
+      relatedEntityType: "ChatMessage",
+      relatedEntityId: roomId,
+    });
+  }
+
+  /**
+   * Notify driver that they received a vehicle assignment offer
+   */
+  static async notifyVehicleAssignmentCreated(
+    driverId: string,
+    ownerName: string,
+    vehiclePlate: string,
+    assignmentId: string
+  ): Promise<void> {
+    await this.sendNotification({
+      userId: driverId,
+      title: "New Driving Assignment Offer",
+      message: `${ownerName} wants to assign you to vehicle ${vehiclePlate}.`,
+      type: "INFO",
+      priority: "HIGH",
+      actionUrl: `/dashboard/citizen/vehicle-assignments`,
+      actionLabel: "View Offer",
+      relatedEntityType: "VehicleAssignment",
+      relatedEntityId: assignmentId,
+    });
+  }
+
+  /**
+   * Notify owner that driver accepted assignment
+   */
+  static async notifyAssignmentAccepted(
+    ownerId: string,
+    driverName: string,
+    vehiclePlate: string,
+    assignmentId: string
+  ): Promise<void> {
+    await this.sendNotification({
+      userId: ownerId,
+      title: "Assignment Accepted",
+      message: `${driverName} accepted the assignment for ${vehiclePlate}.`,
+      type: "SUCCESS",
+      priority: "HIGH",
+      actionUrl: `/dashboard/citizen/vehicle-assignments`,
+      actionLabel: "View Assignment",
+      relatedEntityType: "VehicleAssignment",
+      relatedEntityId: assignmentId,
+    });
+  }
+
+  /**
+   * Notify owner that driver rejected assignment
+   */
+  static async notifyAssignmentRejected(
+    ownerId: string,
+    driverName: string,
+    vehiclePlate: string
+  ): Promise<void> {
+    await this.sendNotification({
+      userId: ownerId,
+      title: "Assignment Declined",
+      message: `${driverName} declined the assignment for ${vehiclePlate}.`,
+      type: "WARNING",
+      priority: "HIGH",
+      actionUrl: "/dashboard/citizen/find-driver",
+      actionLabel: "Find Another Driver",
+    });
+  }
+
+  /**
+   * Notify owner that driver resigned from assignment
+   */
+  static async notifyDriverResigned(
+    ownerId: string,
+    driverName: string,
+    vehiclePlate: string,
+    assignmentId: string
+  ): Promise<void> {
+    await this.sendNotification({
+      userId: ownerId,
+      title: "Driver Resigned",
+      message: `${driverName} has resigned from driving ${vehiclePlate}.`,
+      type: "WARNING",
+      priority: "URGENT",
+      actionUrl: "/dashboard/citizen/find-driver",
+      actionLabel: "Find Replacement",
+      relatedEntityType: "VehicleAssignment",
+      relatedEntityId: assignmentId,
+    });
+  }
+
+  /**
+   * Notify driver that assignment was terminated
+   */
+  static async notifyAssignmentTerminated(
+    driverId: string,
+    ownerName: string,
+    vehiclePlate: string
+  ): Promise<void> {
+    await this.sendNotification({
+      userId: driverId,
+      title: "Assignment Terminated",
+      message: `${ownerName} has terminated your assignment for ${vehiclePlate}.`,
+      type: "WARNING",
+      priority: "URGENT",
+      actionUrl: "/dashboard/citizen/vehicle-assignments",
+      actionLabel: "View Details",
+    });
+  }
 }

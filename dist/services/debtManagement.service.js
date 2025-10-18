@@ -215,29 +215,15 @@ export class DebtManagementService {
             .filter((t) => t.type === "DEBT_PAYMENT")
             .reduce((sum, t) => sum + Math.abs(t.amount), 0);
         // Get outstanding debts
-        const outstandingDebts = await prisma.outstandingDebt.findMany({
-            where: {
-                userId,
-                status: { in: ["OUTSTANDING", "PARTIAL"] },
-            },
-            select: {
-                currentAmount: true,
-                paidAmount: true,
-            },
-        });
-        const totalOutstandingDebt = outstandingDebts.reduce((total, debt) => {
-            const remaining = Math.abs(debt.currentAmount) - Math.abs(debt.paidAmount);
-            return total + Math.max(0, remaining);
-        }, 0);
-        // Balance = Rewards - Penalties - Outstanding Debt
-        const currentBalance = totalRewards - totalPenalties - totalOutstandingDebt;
+        // NOTE: Do not subtract outstanding debt here to avoid double counting.
+        // Balance should reflect rewards vs penalties only.
+        const currentBalance = totalRewards - totalPenalties;
         console.log("💰 Balance calculation for debt check:", {
             totalRewards,
             totalPenalties,
             totalDebtPayments,
-            totalOutstandingDebt,
             currentBalance,
-            formula: `${totalRewards} - ${totalPenalties} - ${totalOutstandingDebt} = ${currentBalance}`,
+            formula: `${totalRewards} - ${totalPenalties} = ${currentBalance}`,
         });
         // If balance is negative (after accounting for existing debts), create new debt
         if (currentBalance < 0) {

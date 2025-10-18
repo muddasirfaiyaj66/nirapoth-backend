@@ -19,6 +19,10 @@ import {
   errorHandler,
   notFoundHandler,
 } from "./middlewares/errorHandler.middleware";
+import {
+  updateUserActivity,
+  markInactiveUsersOffline,
+} from "./middleware/userActivity.middleware";
 
 // Import routes
 import authRoutes from "./routes/auth.routes";
@@ -26,7 +30,7 @@ import profileRoutes from "./routes/profile.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
 import adminRoutes from "./routes/admin.routes";
 import drivingLicenseRoutes from "./routes/drivingLicense.routes";
-import vehicleAssignmentRoutes from "./routes/vehicleAssignment.routes";
+// import vehicleAssignmentRoutes from "./routes/vehicleAssignment.routes"; // DEPRECATED: Using driverAssignment instead
 import userProfileRoutes from "./routes/userProfile.routes";
 import policeManagementRoutes from "./routes/policeManagement.routes";
 import vehicleRoutes from "./routes/vehicle.routes";
@@ -38,11 +42,16 @@ import { aiIntegrationRoutes } from "./routes/aiIntegration.routes";
 import { citizenRoutes } from "./routes/citizen.routes";
 import { policeRoutes } from "./routes/police.routes";
 import { fireServiceRoutes } from "./routes/fireService.routes";
+import { aiWebhookRoutes } from "./routes/aiWebhook.routes";
 import cameraRoutes from "./routes/camera.routes";
 import notificationRoutes from "./routes/notification.routes";
 import citizenReportsRoutes from "./routes/citizenReports.routes";
 import rewardsRoutes from "./routes/rewards.routes";
 import bdGeoRoutes from "./routes/bdGeo.routes";
+import driverProfileRoutes from "./routes/driverProfile.routes";
+import chatRoutes from "./routes/chat.routes";
+import officialChatRoutes from "./routes/officialChat.routes";
+import driverAssignmentRoutes from "./routes/driverAssignment.routes";
 
 export const app = express();
 const httpServer = createServer(app);
@@ -75,6 +84,9 @@ if (config.nodeEnv === "development") {
 // Rate limiting for all routes
 app.use(rateLimiter);
 
+// User activity tracking (updates online status)
+app.use(updateUserActivity);
+
 // Health check route
 app.get("/health", (req: Request, res: Response) => {
   res.json({
@@ -94,7 +106,7 @@ app.use("/api/admin", adminRoutes);
 
 // Enhanced User System Routes
 app.use("/api/driving-licenses", drivingLicenseRoutes);
-app.use("/api/vehicle-assignment", vehicleAssignmentRoutes);
+// app.use("/api/vehicle-assignment", vehicleAssignmentRoutes); // DEPRECATED: Using driver-assignments instead
 app.use("/api/user-profile", userProfileRoutes);
 app.use("/api/police", policeManagementRoutes);
 app.use("/api/vehicles", vehicleRoutes);
@@ -106,11 +118,18 @@ app.use("/api/ai", aiIntegrationRoutes);
 app.use("/api/citizen", citizenRoutes);
 app.use("/api/police", policeRoutes);
 app.use("/api/fire-service", fireServiceRoutes);
+app.use("/api/ai-webhook", aiWebhookRoutes); // AI Detection System
 app.use("/api/cameras", cameraRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/citizen-reports", citizenReportsRoutes);
 app.use("/api/rewards", rewardsRoutes);
 app.use("/api/bd-geo", bdGeoRoutes);
+
+// Driver Marketplace Routes
+app.use("/api/driver-profiles", driverProfileRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/official-chat", officialChatRoutes);
+app.use("/api/driver-assignments", driverAssignmentRoutes);
 
 // Test route to check if server is running (legacy)
 app.get("/", (req: Request, res: Response) => {
@@ -156,6 +175,11 @@ process.on("uncaughtException", (err: Error) => {
 
 // Initialize Socket.IO
 initializeSocket(httpServer);
+
+// Start cron job to mark inactive users as offline (every 5 minutes)
+setInterval(async () => {
+  await markInactiveUsersOffline();
+}, 5 * 60 * 1000); // 5 minutes
 
 httpServer.listen(PORT, async () => {
   console.log(`🚀 Nirapoth Backend Server is running!`);

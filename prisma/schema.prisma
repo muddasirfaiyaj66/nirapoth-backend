@@ -126,11 +126,57 @@ enum NotificationType {
   PENALTY_APPLIED
   DEBT_CREATED
   PAYMENT_RECEIVED
+  FIRE_INCIDENT_REPORTED
+  FIRE_INCIDENT_ASSIGNED
+  FIRE_INCIDENT_RESOLVED
   SYSTEM
   INFO
   WARNING
   SUCCESS
   ERROR
+}
+
+enum FireIncidentType {
+  BUILDING_FIRE
+  VEHICLE_FIRE
+  FOREST_FIRE
+  INDUSTRIAL_FIRE
+  ELECTRICAL_FIRE
+  GAS_EXPLOSION
+  CHEMICAL_FIRE
+  RESCUE_OPERATION
+  MEDICAL_EMERGENCY
+  OTHER
+}
+
+enum FireIncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FireIncidentStatus {
+  REPORTED
+  DISPATCHED
+  IN_PROGRESS
+  RESOLVED
+  CANCELLED
+}
+
+enum FireTeamStatus {
+  AVAILABLE
+  ON_DUTY
+  OFF_DUTY
+  ON_LEAVE
+  TRAINING
+}
+
+enum FireEquipmentStatus {
+  OPERATIONAL
+  UNDER_MAINTENANCE
+  OUT_OF_SERVICE
+  DEPLOYED
 }
 
 enum NotificationPriority {
@@ -188,6 +234,33 @@ enum WithdrawalStatus {
   COMPLETED
 }
 
+enum DriverStatus {
+  AVAILABLE
+  ASSIGNED
+  INACTIVE
+}
+
+enum VehicleAssignmentStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  RESIGNED
+  TERMINATED
+}
+
+enum ChatRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  EMOJI
+}
+
 //
 // NORMALIZED MODELS
 //
@@ -211,6 +284,7 @@ model Location {
   policeOrganizations PoliceOrganization[]
   policeStations      PoliceStation[]
   fireServices        FireService[]
+  fireIncidents       FireIncident[]
   cameras             Camera[]
   violations          Violation[]
   incidents           Incident[]
@@ -356,6 +430,11 @@ model User {
   unblockedBy String?
   verifiedBy  String?
   blockReason String?
+  
+  // Online Status fields
+  isOnline       Boolean   @default(false)
+  lastSeenAt     DateTime?
+  lastActivityAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -374,8 +453,6 @@ model User {
   citizenGem         CitizenGem?
   incidents          Incident[]
   complaints         Complaint[]
-  vehicleAssignments VehicleAssignment[] @relation("VehicleAssignments")
-  assignmentsMade    VehicleAssignment[] @relation("AssignmentsMade")
   drivingLicenses    DrivingLicense[]    @relation("DrivingLicenses")
   citizenReports     CitizenReport[]     @relation("CitizenReports")
   reviewedReports    CitizenReport[]     @relation("ReviewedReports")
@@ -385,6 +462,27 @@ model User {
   processedWithdrawals WithdrawalRequest[] @relation("ProcessedWithdrawals")
   outstandingDebts   OutstandingDebt[]   @relation("UserDebts")
   notifications      Notification[]      @relation("UserNotifications")
+  
+  // Driver Marketplace Relations
+  driverProfile         DriverProfile?      @relation("DriverProfile")
+  chatRoomsAsCitizen    ChatRoom[]          @relation("CitizenChats")
+  chatRoomsAsDriver     ChatRoom[]          @relation("DriverChats")
+  sentMessages          ChatMessage[]       @relation("SentMessages")
+  driverAssignments     VehicleAssignment[] @relation("DriverAssignments")
+  ownerAssignments      VehicleAssignment[] @relation("OwnerAssignments")
+  
+  // Official Chat Relations
+  officialChatsAsUser1  OfficialChatRoom[]  @relation("OfficialChatsAsUser1")
+  officialChatsAsUser2  OfficialChatRoom[]  @relation("OfficialChatsAsUser2")
+  sentOfficialMessages  OfficialChatMessage[] @relation("SentOfficialMessages")
+
+  // Fire Service Relations
+  fireTeamMember        FireTeamMember?
+  reportedFireIncidents FireIncident[]      @relation("FireIncidentReporter")
+
+  // Gem Penalty Relations
+  gemPenalties          GemPenalty[]        @relation("GemPenalties")
+  appliedPenalties      GemPenalty[]        @relation("AppliedGemPenalties")
 
   @@index([email])
   @@index([nidNo])
@@ -446,13 +544,168 @@ model FireService {
   contact    ContactInfo? @relation(fields: [contactId], references: [id])
 
   // Relations
-  cameras Camera[]
+  cameras       Camera[]
+  incidents     FireIncident[]
+  teamMembers   FireTeamMember[]
+  equipment     FireEquipment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([code])
   @@map("fire_services")
+}
+
+model FireIncident {
+  id              String                @id @default(uuid())
+  incidentNumber  String                @unique // e.g., "FI-2024-0001"
+  type            FireIncidentType
+  severity        FireIncidentSeverity
+  status          FireIncidentStatus    @default(REPORTED)
+  description     String                @db.Text
+  
+  // Location details
+  locationId      String?
+  location        Location?             @relation(fields: [locationId], references: [id])
+  address         String?
+  coordinates     String?               // "lat,lng"
+  
+  // Fire service assignment
+  fireServiceId   String?
+  fireService     FireService?          @relation(fields: [fireServiceId], references: [id])
+  
+  // Reporter information
+  reportedBy      String?               // Name of reporter
+  reporterPhone   String?
+  reporterUserId  String?               // If reported by registered user
+  reporterUser    User?                 @relation("FireIncidentReporter", fields: [reporterUserId], references: [id])
+  
+  // Response details
+  dispatchedAt    DateTime?
+  arrivedAt       DateTime?
+  resolvedAt      DateTime?
+  responseTime    Int?                  // minutes
+  casualties      Int                   @default(0)
+  injuries        Int                   @default(0)
+  propertyDamage  String?               // Estimated damage
+  notes           String?               @db.Text
+  
+  // Team assigned
+  teamMembers     FireIncidentAssignment[]
+  equipment       FireEquipmentDeployment[]
+  
+  // Media/Evidence
+  images          String[]              @default([])
+  documents       String[]              @default([])
+  
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([status])
+  @@index([severity])
+  @@index([type])
+  @@index([fireServiceId])
+  @@index([createdAt])
+  @@map("fire_incidents")
+}
+
+model FireTeamMember {
+  id              String          @id @default(uuid())
+  fireServiceId   String
+  fireService     FireService     @relation(fields: [fireServiceId], references: [id], onDelete: Cascade)
+  
+  userId          String          @unique
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Team member details
+  designation     String          // e.g., "Fire Fighter", "Senior Station Officer"
+  employeeId      String          @unique
+  rank            String?
+  status          FireTeamStatus  @default(AVAILABLE)
+  specialization  String[]        @default([]) // e.g., ["Rescue", "Hazmat"]
+  
+  // Contact
+  emergencyContact String?
+  emergencyPhone  String?
+  
+  // Assignments
+  incidents       FireIncidentAssignment[]
+  
+  joinedAt        DateTime        @default(now())
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([fireServiceId])
+  @@index([userId])
+  @@index([status])
+  @@map("fire_team_members")
+}
+
+model FireIncidentAssignment {
+  id            String          @id @default(uuid())
+  incidentId    String
+  incident      FireIncident    @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  
+  teamMemberId  String
+  teamMember    FireTeamMember  @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  
+  assignedAt    DateTime        @default(now())
+  role          String?         // Role in this incident
+
+  @@unique([incidentId, teamMemberId])
+  @@index([incidentId])
+  @@index([teamMemberId])
+  @@map("fire_incident_assignments")
+}
+
+model FireEquipment {
+  id              String                @id @default(uuid())
+  fireServiceId   String
+  fireService     FireService           @relation(fields: [fireServiceId], references: [id], onDelete: Cascade)
+  
+  // Equipment details
+  name            String
+  type            String                // e.g., "Fire Engine", "Ladder Truck", "Ambulance"
+  registrationNo  String                @unique
+  model           String?
+  manufacturer    String?
+  year            Int?
+  
+  // Status
+  status          FireEquipmentStatus   @default(OPERATIONAL)
+  lastMaintenance DateTime?
+  nextMaintenance DateTime?
+  
+  // Specifications
+  capacity        String?               // e.g., "5000 liters"
+  specifications  String?               @db.Text
+  
+  // Deployments
+  deployments     FireEquipmentDeployment[]
+  
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([fireServiceId])
+  @@index([status])
+  @@index([type])
+  @@map("fire_equipment")
+}
+
+model FireEquipmentDeployment {
+  id          String          @id @default(uuid())
+  incidentId  String
+  incident    FireIncident    @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  
+  equipmentId String
+  equipment   FireEquipment   @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  
+  deployedAt  DateTime        @default(now())
+  returnedAt  DateTime?
+
+  @@index([incidentId])
+  @@index([equipmentId])
+  @@map("fire_equipment_deployments")
 }
 
 model Camera {
@@ -553,6 +806,7 @@ model Violation {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   fine        Fine?
+  gemPenalties GemPenalty[]
 
   @@index([vehicleId])
   @@index([ruleId])
@@ -654,6 +908,9 @@ model Complaint {
   description String?
   priority    String? // HIGH, MEDIUM, LOW
   status      String        @default("PENDING") // PENDING, IN_PROGRESS, RESOLVED, CLOSED
+  
+  // Evidence URLs for infrastructure issues (images)
+  evidenceUrls String[] @default([])
 
   // Normalized location
   locationId String?
@@ -745,6 +1002,47 @@ model CitizenGem {
   @@map("citizen_gems")
 }
 
+model GemPenalty {
+  id            String   @id @default(uuid())
+  citizenId     String
+  citizen       User     @relation("GemPenalties", fields: [citizenId], references: [id])
+  
+  // Penalty details
+  amount        Int                     // Gems deducted
+  reason        String                  @db.Text
+  violationType ViolationType?
+  severity      ViolationSeverity       @default(MODERATE)
+  
+  // Related entities
+  violationId   String?
+  violation     Violation?              @relation(fields: [violationId], references: [id])
+  licenseNo     String?                 // Driver's license number
+  
+  // Officer who applied the penalty
+  appliedBy     String
+  officer       User                    @relation("AppliedGemPenalties", fields: [appliedBy], references: [id])
+  
+  notes         String?                 @db.Text
+  
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  @@index([citizenId])
+  @@index([appliedBy])
+  @@index([violationId])
+  @@index([licenseNo])
+  @@index([createdAt])
+  @@map("gem_penalties")
+}
+
+enum ViolationSeverity {
+  MINOR       // 5-10 gems
+  MODERATE    // 10-25 gems  
+  SERIOUS     // 25-50 gems
+  SEVERE      // 50-100 gems
+  CRITICAL    // 100+ gems
+}
+
 // Driving License Management System
 model DrivingLicense {
   id        String @id @default(uuid())
@@ -783,7 +1081,7 @@ model DrivingLicense {
   suspensionReason String?
 
   // Relations
-  vehicleAssignments VehicleAssignment[]
+  driverProfile      DriverProfile?      @relation("DriverLicense")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -800,42 +1098,6 @@ model DrivingLicense {
 }
 
 // Vehicle Assignment System - tracks who is assigned to drive which vehicle
-model VehicleAssignment {
-  id        String  @id @default(uuid())
-  vehicleId String
-  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
-  citizenId String
-  citizen   User    @relation("VehicleAssignments", fields: [citizenId], references: [id])
-
-  assignedBy String // ID of the user who made the assignment (vehicle owner or admin)
-  assignor   User   @relation("AssignmentsMade", fields: [assignedBy], references: [id])
-
-  // Driving License Verification
-  drivingLicenseId String? // Required valid driving license
-  drivingLicense   DrivingLicense? @relation(fields: [drivingLicenseId], references: [id])
-
-  assignedAt DateTime  @default(now())
-  validFrom  DateTime  @default(now())
-  validUntil DateTime? // Optional expiry date for the assignment
-  isActive   Boolean   @default(true)
-  notes      String? // Optional notes about the assignment
-
-  // Assignment approval (for companies/organizations)
-  requiresApproval Boolean   @default(false)
-  isApproved       Boolean   @default(true)
-  approvedBy       String?
-  approvedAt       DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([vehicleId])
-  @@index([citizenId])
-  @@index([isActive])
-  @@index([validFrom, validUntil])
-  @@map("vehicle_assignments")
-}
-
 // Reward Transaction System - tracks rewards and penalties
 model RewardTransaction {
   id          String            @id @default(uuid())
@@ -1030,4 +1292,157 @@ model Upazila {
   @@index([bn_name])
   @@index([districtId])
   @@map("upazilas")
+}
+
+//
+// DRIVER MARKETPLACE SYSTEM
+//
+
+// Driver Profile - Citizens can become drivers
+model DriverProfile {
+  id               String       @id @default(uuid())
+  userId           String       @unique
+  drivingLicenseId String       @unique
+  
+  // Job Details
+  experienceYears  Int
+  expectedSalary   Int
+  preferredLocations String[]    // Array of preferred job locations
+  availability     String        // e.g., "Full-time", "Part-time", "Weekend only"
+  bio              String?       // Driver's description/bio
+  
+  status           DriverStatus @default(AVAILABLE)
+  
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  
+  // Relations
+  user             User         @relation("DriverProfile", fields: [userId], references: [id], onDelete: Cascade)
+  drivingLicense   DrivingLicense @relation("DriverLicense", fields: [drivingLicenseId], references: [id], onDelete: Restrict)
+  
+  @@index([userId])
+  @@index([status])
+  @@index([experienceYears])
+  @@index([expectedSalary])
+  @@map("driver_profiles")
+}
+
+// Chat Room - For citizen-driver communication
+model ChatRoom {
+  id         String            @id @default(uuid())
+  citizenId  String
+  driverId   String
+  status     ChatRequestStatus @default(PENDING)
+  
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  
+  // Relations
+  citizen    User              @relation("CitizenChats", fields: [citizenId], references: [id], onDelete: Cascade)
+  driver     User              @relation("DriverChats", fields: [driverId], references: [id], onDelete: Cascade)
+  
+  // Messages in this room
+  messages   ChatMessage[]
+  
+  @@unique([citizenId, driverId])
+  @@index([citizenId])
+  @@index([driverId])
+  @@index([status])
+  @@map("chat_rooms")
+}
+
+// Chat Message - Individual messages in chat rooms
+model ChatMessage {
+  id         String      @id @default(uuid())
+  chatRoomId String
+  senderId   String
+  message    String      @db.Text
+  messageType MessageType @default(TEXT)
+  mediaUrl   String?     // Encrypted Cloudinary URL for images/videos
+  encrypted  Boolean     @default(true)
+  read       Boolean     @default(false)
+  
+  createdAt  DateTime @default(now())
+  
+  // Relations
+  chatRoom   ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  
+  @@index([chatRoomId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+// Official Chat Room - For admin-to-admin, police-to-police, inter-official communication
+model OfficialChatRoom {
+  id        String   @id @default(uuid())
+  user1Id   String   // First participant
+  user2Id   String   // Second participant
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user1     User              @relation("OfficialChatsAsUser1", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2     User              @relation("OfficialChatsAsUser2", fields: [user2Id], references: [id], onDelete: Cascade)
+  
+  // Messages in this room
+  messages  OfficialChatMessage[]
+  
+  @@unique([user1Id, user2Id])
+  @@index([user1Id])
+  @@index([user2Id])
+  @@map("official_chat_rooms")
+}
+
+// Official Chat Message - Individual messages in official chat rooms
+model OfficialChatMessage {
+  id          String      @id @default(uuid())
+  chatRoomId  String
+  senderId    String
+  message     String      @db.Text
+  messageType MessageType @default(TEXT)       // NEW
+  mediaUrl    String?                           // NEW - Encrypted Cloudinary URL
+  encrypted   Boolean     @default(true)
+  read        Boolean     @default(false)
+  
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  chatRoom    OfficialChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  sender      User             @relation("SentOfficialMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  
+  @@index([chatRoomId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@map("official_chat_messages")
+}
+
+// Vehicle Assignment - Assign drivers to vehicles
+model VehicleAssignment {
+  id        String                   @id @default(uuid())
+  vehicleId String
+  driverId  String
+  ownerId   String
+  
+  status    VehicleAssignmentStatus @default(PENDING)
+  salary    Int
+  startDate DateTime?
+  endDate   DateTime?
+  notes     String?                  @db.Text
+  
+  createdAt DateTime                 @default(now())
+  updatedAt DateTime                 @updatedAt
+  
+  // Relations
+  vehicle   Vehicle                  @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  driver    User                     @relation("DriverAssignments", fields: [driverId], references: [id], onDelete: Restrict)
+  owner     User                     @relation("OwnerAssignments", fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([ownerId])
+  @@index([status])
+  @@map("vehicle_assignments")
 }

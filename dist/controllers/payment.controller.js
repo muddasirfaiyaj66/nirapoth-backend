@@ -981,8 +981,9 @@ export class PaymentController {
                 remainingDebt,
                 paymentAmount,
             });
-            // Record the payment
-            const updatedDebt = await DebtManagementService.recordPayment(debtId, paymentAmount, transactionId);
+            // Record the payment (clamp to remaining amount to avoid negatives)
+            const safePaymentAmount = Math.max(0, Math.min(paymentAmount, remainingDebt));
+            const updatedDebt = await DebtManagementService.recordPayment(debtId, safePaymentAmount, transactionId);
             console.log("✅ Debt payment recorded successfully:", {
                 debtId: updatedDebt.id,
                 status: updatedDebt.status,
@@ -994,11 +995,23 @@ export class PaymentController {
             await prisma.rewardTransaction.create({
                 data: {
                     userId: debt.userId,
-                    amount: paymentAmount, // Positive value (industry standard)
+                    amount: safePaymentAmount, // Positive value (industry standard)
                     type: "DEBT_PAYMENT",
                     source: "DEBT_PAYMENT",
                     status: "COMPLETED",
                     description: `Debt payment - ${transactionId}`,
+                },
+            });
+            // Create a balancing credit so rewards-offset cancels penalties
+            // This ensures currentBalance = rewards - penalties reaches zero after full payment
+            await prisma.rewardTransaction.create({
+                data: {
+                    userId: debt.userId,
+                    amount: safePaymentAmount, // credit amount
+                    type: "REWARD",
+                    source: "DEBT_PAYMENT",
+                    status: "COMPLETED",
+                    description: `Debt payment credit - ${transactionId}`,
                 },
             });
             console.log("💰 Created debt payment transaction:", {
@@ -1012,6 +1025,25 @@ export class PaymentController {
                 // This will recalculate and create new debt only if balance is still negative
                 // But now the balance should be positive because we added the reward transaction
                 await DebtManagementService.checkAndCreateDebtForNegativeBalance(debt.userId);
+            }
+            // Send debt payment confirmation email (non-blocking)
+            try {
+                const { EmailService } = await import("../services/email.service");
+                const emailService = new EmailService();
+                const remaining = Math.max(0, (updatedDebt.currentAmount || 0) - (updatedDebt.paidAmount || 0));
+                await emailService.sendDebtPaymentConfirmation({
+                    userEmail: debt.user?.email || "",
+                    userName: `${debt.user?.firstName || ""} ${debt.user?.lastName || ""}`.trim(),
+                    transactionId,
+                    amount: safePaymentAmount,
+                    paymentMethod: "Online Payment",
+                    debtId,
+                    remainingBalance: remaining,
+                    paymentDate: new Date().toISOString(),
+                });
+            }
+            catch (emailError) {
+                console.error("Failed to send debt payment email:", emailError);
             }
             res.status(200).json({
                 success: true,

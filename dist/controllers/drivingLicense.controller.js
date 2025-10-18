@@ -1,332 +1,333 @@
-import { z } from "zod";
-import { DrivingLicenseService } from "../services/drivingLicense.service";
-// Validation schemas
-const createLicenseSchema = z.object({
-    licenseNo: z.string().min(1, "License number is required"),
-    category: z.enum([
-        "LIGHT_VEHICLE",
-        "MOTORCYCLE",
-        "LIGHT_VEHICLE_MOTORCYCLE",
-        "HEAVY_VEHICLE",
-        "PSV",
-        "GOODS_VEHICLE",
-    ]),
-    issueDate: z.string().transform((str) => new Date(str)),
-    expiryDate: z.string().transform((str) => new Date(str)),
-    issuingAuthority: z.string().min(1, "Issuing authority is required"),
-    restrictions: z.array(z.string()).optional(),
-    endorsements: z.array(z.string()).optional(),
-});
-const suspendLicenseSchema = z.object({
-    suspendedUntil: z.string().transform((str) => new Date(str)),
-    reason: z.string().min(1, "Suspension reason is required"),
-});
-export class DrivingLicenseController {
+import DrivingLicenseService from "../services/drivingLicense.service";
+class DrivingLicenseController {
     /**
-     * Alias for getCitizenLicenses - get user's licenses
+     * Create a new driving license (Citizen only)
+     * POST /api/driving-licenses
      */
-    static async getUserLicenses(req, res) {
-        return DrivingLicenseController.getCitizenLicenses(req, res);
-    }
-    /**
-     * Add new driving license for citizen
-     */
-    static async addLicense(req, res) {
+    async createLicense(req, res) {
         try {
-            const validatedData = createLicenseSchema.parse(req.body);
-            const citizenId = req.params.citizenId || req.user?.id;
-            if (!citizenId) {
-                res.status(400).json({
-                    success: false,
-                    message: "Citizen ID is required",
-                    statusCode: 400,
-                });
-                return;
-            }
-            const license = await DrivingLicenseService.createDrivingLicense({
-                ...validatedData,
-                citizenId,
-            });
-            res.status(201).json({
-                success: true,
-                message: "Driving license added successfully",
-                data: license,
-                statusCode: 201,
-            });
-        }
-        catch (error) {
-            console.error("Error adding driving license:", error);
-            if (error instanceof z.ZodError) {
-                res.status(400).json({
-                    success: false,
-                    message: "Validation error",
-                    errors: error.issues,
-                    statusCode: 400,
-                });
-                return;
-            }
-            if (error instanceof Error && error.message.includes("already exists")) {
-                res.status(409).json({
-                    success: false,
-                    message: error.message,
-                    statusCode: 409,
-                });
-                return;
-            }
-            res.status(500).json({
-                success: false,
-                message: "Internal server error",
-                statusCode: 500,
-            });
-        }
-    }
-    /**
-     * Get citizen's driving licenses
-     */
-    static async getCitizenLicenses(req, res) {
-        try {
-            const citizenId = req.params.citizenId || req.user?.id;
-            if (!citizenId) {
-                res.status(400).json({
-                    success: false,
-                    message: "Citizen ID is required",
-                    statusCode: 400,
-                });
-                return;
-            }
-            const licenses = await DrivingLicenseService.getCitizenLicenses(citizenId);
-            res.status(200).json({
-                success: true,
-                message: "Licenses retrieved successfully",
-                data: licenses,
-                statusCode: 200,
-            });
-        }
-        catch (error) {
-            console.error("Error getting citizen licenses:", error);
-            res.status(500).json({
-                success: false,
-                message: "Internal server error",
-                statusCode: 500,
-            });
-        }
-    }
-    /**
-     * Verify driving license (admin only)
-     */
-    static async verifyLicense(req, res) {
-        try {
-            const { licenseId } = req.params;
-            const verifiedBy = req.user?.id;
-            if (!verifiedBy) {
+            const userId = req.user?.userId;
+            if (!userId) {
                 res.status(401).json({
                     success: false,
                     message: "Unauthorized",
-                    statusCode: 401,
                 });
                 return;
             }
-            const updatedLicense = await DrivingLicenseService.verifyLicense(licenseId, verifiedBy);
-            res.status(200).json({
-                success: true,
-                message: "License verified successfully",
-                data: updatedLicense,
-                statusCode: 200,
-            });
-        }
-        catch (error) {
-            console.error("Error verifying license:", error);
-            res.status(500).json({
-                success: false,
-                message: "Internal server error",
-                statusCode: 500,
-            });
-        }
-    }
-    /**
-     * Suspend driving license (admin only)
-     */
-    static async suspendLicense(req, res) {
-        try {
-            const { licenseId } = req.params;
-            const validatedData = suspendLicenseSchema.parse(req.body);
-            const suspendedLicense = await DrivingLicenseService.suspendLicense(licenseId, validatedData.suspendedUntil, validatedData.reason);
-            res.status(200).json({
-                success: true,
-                message: "License suspended successfully",
-                data: suspendedLicense,
-                statusCode: 200,
-            });
-        }
-        catch (error) {
-            console.error("Error suspending license:", error);
-            if (error instanceof z.ZodError) {
+            const { licenseNo, category, issueDate, expiryDate, issuingAuthority, restrictions, endorsements, } = req.body;
+            // Validation
+            if (!licenseNo ||
+                !category ||
+                !issueDate ||
+                !expiryDate ||
+                !issuingAuthority) {
                 res.status(400).json({
                     success: false,
-                    message: "Validation error",
-                    errors: error.issues,
-                    statusCode: 400,
+                    message: "Missing required fields",
                 });
                 return;
             }
-            res.status(500).json({
-                success: false,
-                message: "Internal server error",
-                statusCode: 500,
+            const license = await DrivingLicenseService.createLicense({
+                licenseNo,
+                citizenId: userId,
+                category: category,
+                issueDate: new Date(issueDate),
+                expiryDate: new Date(expiryDate),
+                issuingAuthority,
+                restrictions,
+                endorsements,
             });
-        }
-    }
-    /**
-     * Get licenses expiring soon
-     */
-    static async getExpiringLicenses(req, res) {
-        try {
-            const days = parseInt(req.query.days) || 30;
-            const expiringLicenses = await DrivingLicenseService.getLicensesExpiringSoon(days);
-            res.status(200).json({
+            res.status(201).json({
                 success: true,
-                message: "Expiring licenses retrieved successfully",
-                data: expiringLicenses,
-                statusCode: 200,
+                message: "Driving license created successfully. You received 10 gems!",
+                data: license,
             });
         }
         catch (error) {
-            console.error("Error getting expiring licenses:", error);
-            res.status(500).json({
+            console.error("❌ Error creating driving license:", error);
+            res.status(400).json({
                 success: false,
-                message: "Internal server error",
-                statusCode: 500,
+                message: error.message || "Failed to create driving license",
             });
         }
     }
     /**
-     * Get all licenses for admin management
+     * Get current user's driving license
+     * GET /api/driving-licenses/my-license
      */
-    static async getAllLicenses(req, res) {
+    async getMyLicense(req, res) {
         try {
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 20;
-            const category = req.query.category;
-            const isVerified = req.query.isVerified === "true"
-                ? true
-                : req.query.isVerified === "false"
-                    ? false
-                    : undefined;
-            const isExpired = req.query.isExpired === "true"
-                ? true
-                : req.query.isExpired === "false"
-                    ? false
-                    : undefined;
-            const result = await DrivingLicenseService.getAllLicenses({
-                page,
-                limit,
-                category,
-                isVerified,
-                isExpired,
-            });
-            res.status(200).json({
-                success: true,
-                message: "Licenses retrieved successfully",
-                data: result.licenses,
-                pagination: result.pagination,
-                statusCode: 200,
-            });
-        }
-        catch (error) {
-            console.error("Error getting all licenses:", error);
-            res.status(500).json({
-                success: false,
-                message: "Internal server error",
-                statusCode: 500,
-            });
-        }
-    }
-    /**
-     * Validate license for vehicle assignment
-     */
-    static async validateForAssignment(req, res) {
-        try {
-            const { citizenId } = req.params;
-            const { vehicleType } = req.query;
-            if (!vehicleType) {
-                res.status(400).json({
+            const userId = req.user?.userId;
+            if (!userId) {
+                res.status(401).json({
                     success: false,
-                    message: "Vehicle type is required",
-                    statusCode: 400,
+                    message: "Unauthorized",
                 });
                 return;
             }
-            const validation = await DrivingLicenseService.validateForVehicleAssignment(citizenId, vehicleType);
-            res.status(200).json({
-                success: true,
-                message: "License validation completed",
-                data: validation,
-                statusCode: 200,
-            });
-        }
-        catch (error) {
-            console.error("Error validating license:", error);
-            res.status(500).json({
-                success: false,
-                message: "Internal server error",
-                statusCode: 500,
-            });
-        }
-    }
-    /**
-     * Record violation for license holder
-     */
-    static async recordViolation(req, res) {
-        try {
-            const { licenseNo } = req.params;
-            const updatedLicense = await DrivingLicenseService.recordViolation(licenseNo);
-            if (!updatedLicense) {
+            const license = await DrivingLicenseService.getLicenseByUserId(userId);
+            if (!license) {
                 res.status(404).json({
                     success: false,
-                    message: "Driving license not found",
-                    statusCode: 404,
+                    message: "No driving license found",
                 });
                 return;
             }
             res.status(200).json({
                 success: true,
-                message: "Violation recorded successfully",
-                data: updatedLicense,
-                statusCode: 200,
+                data: license,
             });
         }
         catch (error) {
-            console.error("Error recording violation:", error);
+            console.error("❌ Error fetching driving license:", error);
             res.status(500).json({
                 success: false,
-                message: "Internal server error",
-                statusCode: 500,
+                message: error.message || "Failed to fetch driving license",
             });
         }
     }
     /**
-     * Alias methods for route compatibility
+     * Get license by ID (Admin/Police)
+     * GET /api/driving-licenses/:id
      */
-    static async updateLicense(req, res) {
-        // Implementation for updating license would go here
-        res.status(501).json({
-            success: false,
-            message: "Update license feature not yet implemented",
-            statusCode: 501,
-        });
+    async getLicenseById(req, res) {
+        try {
+            const { id } = req.params;
+            const license = await DrivingLicenseService.getLicenseById(id);
+            if (!license) {
+                res.status(404).json({
+                    success: false,
+                    message: "License not found",
+                });
+                return;
+            }
+            res.status(200).json({
+                success: true,
+                data: license,
+            });
+        }
+        catch (error) {
+            console.error("❌ Error fetching license:", error);
+            res.status(500).json({
+                success: false,
+                message: error.message || "Failed to fetch license",
+            });
+        }
     }
-    static async validateLicense(req, res) {
-        return DrivingLicenseController.validateForAssignment(req, res);
+    /**
+     * Get license by license number (Admin/Police)
+     * GET /api/driving-licenses/by-license-no/:licenseNo
+     */
+    async getLicenseByLicenseNo(req, res) {
+        try {
+            const { licenseNo } = req.params;
+            const license = await DrivingLicenseService.getLicenseByLicenseNo(licenseNo);
+            if (!license) {
+                res.status(404).json({
+                    success: false,
+                    message: "License not found",
+                });
+                return;
+            }
+            res.status(200).json({
+                success: true,
+                data: license,
+            });
+        }
+        catch (error) {
+            console.error("❌ Error fetching license:", error);
+            res.status(500).json({
+                success: false,
+                message: error.message || "Failed to fetch license",
+            });
+        }
     }
-    static async reinstateLicense(req, res) {
-        // Implementation for reinstating license would go here
-        res.status(501).json({
-            success: false,
-            message: "Reinstate license feature not yet implemented",
-            statusCode: 501,
-        });
+    /**
+     * Update driving license (Citizen only - own license)
+     * PATCH /api/driving-licenses/:id
+     */
+    async updateLicense(req, res) {
+        try {
+            const userId = req.user?.userId;
+            const { id } = req.params;
+            if (!userId) {
+                res.status(401).json({
+                    success: false,
+                    message: "Unauthorized",
+                });
+                return;
+            }
+            // Verify ownership
+            const existingLicense = await DrivingLicenseService.getLicenseById(id);
+            if (!existingLicense || existingLicense.citizenId !== userId) {
+                res.status(403).json({
+                    success: false,
+                    message: "You are not authorized to update this license",
+                });
+                return;
+            }
+            const { category, expiryDate, restrictions, endorsements, isActive } = req.body;
+            const updatedLicense = await DrivingLicenseService.updateLicense(id, {
+                category,
+                expiryDate: expiryDate ? new Date(expiryDate) : undefined,
+                restrictions,
+                endorsements,
+                isActive,
+            });
+            res.status(200).json({
+                success: true,
+                message: "License updated successfully",
+                data: updatedLicense,
+            });
+        }
+        catch (error) {
+            console.error("❌ Error updating license:", error);
+            res.status(400).json({
+                success: false,
+                message: error.message || "Failed to update license",
+            });
+        }
     }
-    static async verifyLicenseByNumber(req, res) {
-        return DrivingLicenseController.verifyLicense(req, res);
+    /**
+     * Deduct gems from license (Police only)
+     * POST /api/driving-licenses/:id/deduct-gems
+     */
+    async deductGems(req, res) {
+        try {
+            const userId = req.user?.userId;
+            const userRole = req.user?.role;
+            const { id } = req.params;
+            const { gemsToDeduct, reason } = req.body;
+            if (!userId || userRole !== "POLICE") {
+                res.status(403).json({
+                    success: false,
+                    message: "Only police officers can deduct gems",
+                });
+                return;
+            }
+            if (!gemsToDeduct || !reason) {
+                res.status(400).json({
+                    success: false,
+                    message: "Gems to deduct and reason are required",
+                });
+                return;
+            }
+            const result = await DrivingLicenseService.deductGems({
+                licenseId: id,
+                gemsToDeduct: parseInt(gemsToDeduct),
+                reason,
+                deductedBy: userId,
+            });
+            let message = `${gemsToDeduct} gem(s) deducted successfully. Remaining: ${result.remainingGems}`;
+            if (result.blacklisted) {
+                message = `License blacklisted! All gems depleted. Driver must pay ৳5000 penalty and reapply for driving test.`;
+            }
+            res.status(200).json({
+                success: true,
+                message,
+                data: {
+                    license: result.license,
+                    blacklisted: result.blacklisted,
+                    remainingGems: result.remainingGems,
+                },
+            });
+        }
+        catch (error) {
+            console.error("❌ Error deducting gems:", error);
+            res.status(400).json({
+                success: false,
+                message: error.message || "Failed to deduct gems",
+            });
+        }
+    }
+    /**
+     * Check if license is valid
+     * GET /api/driving-licenses/:id/validity
+     */
+    async checkValidity(req, res) {
+        try {
+            const { id } = req.params;
+            const validity = await DrivingLicenseService.isLicenseValid(id);
+            res.status(200).json({
+                success: true,
+                data: validity,
+            });
+        }
+        catch (error) {
+            console.error("❌ Error checking license validity:", error);
+            res.status(500).json({
+                success: false,
+                message: error.message || "Failed to check license validity",
+            });
+        }
+    }
+    /**
+     * Get all blacklisted licenses (Admin/Police)
+     * GET /api/driving-licenses/blacklisted
+     */
+    async getBlacklistedLicenses(req, res) {
+        try {
+            const userRole = req.user?.role;
+            if (userRole !== "POLICE" &&
+                userRole !== "ADMIN" &&
+                userRole !== "SUPER_ADMIN") {
+                res.status(403).json({
+                    success: false,
+                    message: "Unauthorized",
+                });
+                return;
+            }
+            const blacklistedLicenses = await DrivingLicenseService.getBlacklistedLicenses();
+            res.status(200).json({
+                success: true,
+                data: blacklistedLicenses,
+            });
+        }
+        catch (error) {
+            console.error("❌ Error fetching blacklisted licenses:", error);
+            res.status(500).json({
+                success: false,
+                message: error.message || "Failed to fetch blacklisted licenses",
+            });
+        }
+    }
+    /**
+     * Pay blacklist penalty
+     * POST /api/driving-licenses/:id/pay-blacklist-penalty
+     */
+    async payBlacklistPenalty(req, res) {
+        try {
+            const userId = req.user?.userId;
+            const { id } = req.params;
+            if (!userId) {
+                res.status(401).json({
+                    success: false,
+                    message: "Unauthorized",
+                });
+                return;
+            }
+            // Verify ownership
+            const license = await DrivingLicenseService.getLicenseById(id);
+            if (!license || license.citizenId !== userId) {
+                res.status(403).json({
+                    success: false,
+                    message: "You are not authorized to pay for this license",
+                });
+                return;
+            }
+            await DrivingLicenseService.payBlacklistPenalty(id);
+            res.status(200).json({
+                success: true,
+                message: "Blacklist penalty paid successfully. You may now reapply for your driving test.",
+            });
+        }
+        catch (error) {
+            console.error("❌ Error paying blacklist penalty:", error);
+            res.status(400).json({
+                success: false,
+                message: error.message || "Failed to pay blacklist penalty",
+            });
+        }
     }
 }
+export default new DrivingLicenseController();

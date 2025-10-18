@@ -20,6 +20,22 @@ export const authenticateToken = async (req, res, next) => {
         if (!token && req.cookies) {
             token = req.cookies.accessToken;
         }
+        // Debug logging - always log in development to diagnose issue
+        if (process.env.NODE_ENV === "development") {
+            console.log("🔍 Auth Debug:", {
+                path: req.path,
+                method: req.method,
+                hasAuthHeader: !!authHeader,
+                authHeaderValue: authHeader
+                    ? authHeader.substring(0, 20) + "..."
+                    : "none",
+                hasCookies: !!req.cookies,
+                cookieKeys: req.cookies ? Object.keys(req.cookies) : [],
+                accessTokenPresent: req.cookies?.accessToken ? "YES" : "NO",
+                refreshTokenPresent: req.cookies?.refreshToken ? "YES" : "NO",
+                tokenFound: !!token,
+            });
+        }
         if (!token) {
             res.status(401).json({
                 success: false,
@@ -29,7 +45,24 @@ export const authenticateToken = async (req, res, next) => {
             return;
         }
         // Verify the token
-        const decoded = JWTService.verifyAccessToken(token);
+        let decoded;
+        try {
+            decoded = JWTService.verifyAccessToken(token);
+            if (process.env.NODE_ENV === "development") {
+                console.log("🔍 Token verified successfully for userId:", decoded.userId);
+            }
+        }
+        catch (error) {
+            if (process.env.NODE_ENV === "development") {
+                console.log("🔍 Token verification failed:", error.message);
+            }
+            res.status(401).json({
+                success: false,
+                message: "Unauthorized",
+                statusCode: 401,
+            });
+            return;
+        }
         // Fetch user from database to ensure they still exist
         const user = await prisma.user.findUnique({
             where: { id: decoded.userId },
@@ -49,6 +82,9 @@ export const authenticateToken = async (req, res, next) => {
                 updatedAt: true,
             },
         });
+        if (process.env.NODE_ENV === "development") {
+            console.log("🔍 User lookup result:", user ? "FOUND" : "NOT FOUND");
+        }
         if (!user) {
             res.status(401).json({
                 success: false,
@@ -58,13 +94,25 @@ export const authenticateToken = async (req, res, next) => {
             return;
         }
         // Attach user information to request object
-        req.user = user; // Type assertion since we're selecting specific fields
+        req.user = {
+            ...user,
+            userId: user.id, // Add userId alias for backward compatibility
+        };
         req.userId = user.id;
         req.userRole = user.role;
+        if (process.env.NODE_ENV === "development") {
+            console.log("🔍 Auth successful, calling next()");
+        }
         next();
     }
     catch (error) {
         const message = error instanceof Error ? error.message : "Authentication failed";
+        if (process.env.NODE_ENV === "development") {
+            console.log("🔍 Auth middleware error:", {
+                error: message,
+                stack: error instanceof Error ? error.stack : undefined,
+            });
+        }
         res.status(401).json({
             success: false,
             message,
@@ -160,10 +208,10 @@ export const adminOnly = authorizeRoles(["ADMIN"]);
  */
 export const policeOrAdmin = authorizeRoles(["ADMIN", "POLICE"]);
 /**
- * Driver or Admin middleware
- */
-export const driverOrAdmin = authorizeRoles(["ADMIN", "DRIVER"]);
-/**
  * Fire Service or Admin middleware
  */
 export const fireServiceOrAdmin = authorizeRoles(["ADMIN", "FIRE_SERVICE"]);
+/**
+ * Alias for authenticateToken for backward compatibility
+ */
+export const authenticate = authenticateToken;

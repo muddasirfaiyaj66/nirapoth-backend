@@ -10,8 +10,12 @@ import {
   addDrivingLicense,
 } from "../controllers/profile.controller";
 import { authenticateToken } from "../middlewares/auth.middleware";
+import { updateUserActivity } from "../middleware/userActivity.middleware";
 
 const router = Router();
+
+// Apply activity tracking to all profile routes
+router.use(authenticateToken, updateUserActivity);
 
 /**
  * @route   GET /api/profile/me

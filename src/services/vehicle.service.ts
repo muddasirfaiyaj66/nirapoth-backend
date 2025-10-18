@@ -165,10 +165,10 @@ class VehicleService {
         },
         assignments: {
           where: {
-            isActive: true,
+            status: "ACTIVE",
           },
           include: {
-            citizen: {
+            driver: {
               select: {
                 id: true,
                 firstName: true,
@@ -177,7 +177,6 @@ class VehicleService {
                 phone: true,
               },
             },
-            drivingLicense: true,
           },
         },
       },

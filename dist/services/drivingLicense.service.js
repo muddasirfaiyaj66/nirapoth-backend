@@ -1,19 +1,33 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
-export class DrivingLicenseService {
+import { prisma } from "../lib/prisma";
+class DrivingLicenseService {
     /**
-     * Create a new driving license for a citizen
+     * Create a new driving license with initial 10 gems
      */
-    static async createDrivingLicense(data) {
+    async createLicense(data) {
+        const { restrictions, endorsements, ...rest } = data;
+        // Check if citizen already has an active license
+        const existingLicense = await prisma.drivingLicense.findFirst({
+            where: {
+                citizenId: data.citizenId,
+                isActive: true,
+            },
+        });
+        if (existingLicense) {
+            throw new Error("Citizen already has an active driving license");
+        }
+        // Check if license number is already in use
+        const licenseExists = await prisma.drivingLicense.findUnique({
+            where: { licenseNo: data.licenseNo },
+        });
+        if (licenseExists) {
+            throw new Error("License number already exists");
+        }
         return await prisma.drivingLicense.create({
             data: {
-                ...data,
-                restrictions: data.restrictions
-                    ? JSON.stringify(data.restrictions)
-                    : null,
-                endorsements: data.endorsements
-                    ? JSON.stringify(data.endorsements)
-                    : null,
+                ...rest,
+                gems: 10, // Initial 10 gems bonus
+                restrictions: restrictions ? JSON.stringify(restrictions) : null,
+                endorsements: endorsements ? JSON.stringify(endorsements) : null,
             },
             include: {
                 citizen: {
@@ -22,192 +36,343 @@ export class DrivingLicenseService {
                         firstName: true,
                         lastName: true,
                         email: true,
+                        phone: true,
+                        profileImage: true,
+                        dateOfBirth: true,
+                        nidNo: true,
+                        birthCertificateNo: true,
+                        presentAddress: true,
+                        presentCity: true,
+                        presentDistrict: true,
+                        gender: true,
+                        bloodGroup: true,
                     },
                 },
             },
         });
     }
     /**
-     * Verify a driving license
+     * Get citizen's driving license
      */
-    static async verifyLicense(licenseId, verifiedBy) {
-        return await prisma.drivingLicense.update({
-            where: { id: licenseId },
-            data: {
-                isVerified: true,
-                verifiedBy,
-                verifiedAt: new Date(),
-            },
-        });
-    }
-    /**
-     * Check if citizen has valid driving license for vehicle category
-     */
-    static async hasValidLicense(citizenId, vehicleCategory) {
-        const now = new Date();
+    async getLicenseByUserId(citizenId) {
         const license = await prisma.drivingLicense.findFirst({
             where: {
                 citizenId,
                 isActive: true,
-                isVerified: true,
-                isSuspended: false,
-                expiryDate: { gt: now },
-                ...(vehicleCategory && { category: vehicleCategory }),
-            },
-        });
-        return !!license;
-    }
-    /**
-     * Get citizen's active driving licenses
-     */
-    static async getCitizenLicenses(citizenId) {
-        return await prisma.drivingLicense.findMany({
-            where: {
-                citizenId,
-                isActive: true,
-            },
-            orderBy: { createdAt: "desc" },
-            include: {
-                citizen: {
-                    select: {
-                        firstName: true,
-                        lastName: true,
-                        email: true,
-                    },
-                },
-            },
-        });
-    }
-    /**
-     * Suspend a driving license
-     */
-    static async suspendLicense(licenseId, suspendedUntil, reason) {
-        return await prisma.drivingLicense.update({
-            where: { id: licenseId },
-            data: {
-                isSuspended: true,
-                suspendedUntil,
-                suspensionReason: reason,
-            },
-        });
-    }
-    /**
-     * Update license violation count
-     */
-    static async recordViolation(licenseNo) {
-        const license = await prisma.drivingLicense.findUnique({
-            where: { licenseNo },
-        });
-        if (!license)
-            return null;
-        return await prisma.drivingLicense.update({
-            where: { licenseNo },
-            data: {
-                violationCount: license.violationCount + 1,
-                lastViolationAt: new Date(),
-            },
-        });
-    }
-    /**
-     * Get licenses expiring soon (within 30 days)
-     */
-    static async getLicensesExpiringSoon(days = 30) {
-        const futureDate = new Date();
-        futureDate.setDate(futureDate.getDate() + days);
-        return await prisma.drivingLicense.findMany({
-            where: {
-                isActive: true,
-                expiryDate: {
-                    lte: futureDate,
-                    gt: new Date(),
-                },
             },
             include: {
                 citizen: {
                     select: {
+                        id: true,
                         firstName: true,
                         lastName: true,
                         email: true,
                         phone: true,
+                        profileImage: true,
+                        dateOfBirth: true,
+                        nidNo: true,
+                        birthCertificateNo: true,
+                        presentAddress: true,
+                        presentCity: true,
+                        presentDistrict: true,
+                        gender: true,
+                        bloodGroup: true,
                     },
                 },
             },
-            orderBy: { expiryDate: "asc" },
         });
-    }
-    /**
-     * Validate license for vehicle assignment
-     */
-    static async validateForVehicleAssignment(citizenId, vehicleType) {
-        // Map vehicle types to license categories
-        const categoryMapping = {
-            MOTORCYCLE: ["MOTORCYCLE", "LIGHT_VEHICLE_MOTORCYCLE"],
-            CAR: ["LIGHT_VEHICLE", "LIGHT_VEHICLE_MOTORCYCLE"],
-            TRUCK: ["HEAVY_VEHICLE", "GOODS_VEHICLE"],
-            BUS: ["HEAVY_VEHICLE", "PSV"],
-        };
-        const requiredCategories = categoryMapping[vehicleType] || [
-            "LIGHT_VEHICLE",
-        ];
-        const validLicense = await prisma.drivingLicense.findFirst({
-            where: {
-                citizenId,
-                category: { in: requiredCategories },
-                isActive: true,
-                isVerified: true,
-                isSuspended: false,
-                expiryDate: { gt: new Date() },
-            },
-        });
-        return {
-            isValid: !!validLicense,
-            license: validLicense,
-            requiredCategories,
-        };
-    }
-    /**
-     * Get all licenses for admin management
-     */
-    static async getAllLicenses(filters) {
-        const { page = 1, limit = 20, category, isVerified, isExpired } = filters;
-        const skip = (page - 1) * limit;
-        const now = new Date();
-        const where = {};
-        if (category)
-            where.category = category;
-        if (isVerified !== undefined)
-            where.isVerified = isVerified;
-        if (isExpired !== undefined) {
-            where.expiryDate = isExpired ? { lt: now } : { gte: now };
+        if (license) {
+            return {
+                ...license,
+                restrictions: license.restrictions
+                    ? JSON.parse(license.restrictions)
+                    : [],
+                endorsements: license.endorsements
+                    ? JSON.parse(license.endorsements)
+                    : [],
+            };
         }
-        const [licenses, total] = await Promise.all([
-            prisma.drivingLicense.findMany({
-                where,
-                skip,
-                take: limit,
-                include: {
-                    citizen: {
-                        select: {
-                            firstName: true,
-                            lastName: true,
-                            email: true,
-                            phone: true,
-                        },
+        return null;
+    }
+    /**
+     * Get license by ID
+     */
+    async getLicenseById(licenseId) {
+        const license = await prisma.drivingLicense.findUnique({
+            where: { id: licenseId },
+            include: {
+                citizen: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        phone: true,
+                        profileImage: true,
+                        dateOfBirth: true,
+                        nidNo: true,
+                        birthCertificateNo: true,
+                        presentAddress: true,
+                        presentCity: true,
+                        presentDistrict: true,
+                        gender: true,
+                        bloodGroup: true,
                     },
                 },
-                orderBy: { createdAt: "desc" },
-            }),
-            prisma.drivingLicense.count({ where }),
-        ]);
-        return {
-            licenses,
-            pagination: {
-                total,
-                pages: Math.ceil(total / limit),
-                currentPage: page,
-                hasNext: page * limit < total,
-                hasPrev: page > 1,
             },
+        });
+        if (license) {
+            return {
+                ...license,
+                restrictions: license.restrictions
+                    ? JSON.parse(license.restrictions)
+                    : [],
+                endorsements: license.endorsements
+                    ? JSON.parse(license.endorsements)
+                    : [],
+            };
+        }
+        return null;
+    }
+    /**
+     * Get license by license number
+     */
+    async getLicenseByLicenseNo(licenseNo) {
+        const license = await prisma.drivingLicense.findUnique({
+            where: { licenseNo },
+            include: {
+                citizen: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        phone: true,
+                        profileImage: true,
+                        dateOfBirth: true,
+                        nidNo: true,
+                        birthCertificateNo: true,
+                        presentAddress: true,
+                        presentCity: true,
+                        presentDistrict: true,
+                        gender: true,
+                        bloodGroup: true,
+                    },
+                },
+            },
+        });
+        if (license) {
+            return {
+                ...license,
+                restrictions: license.restrictions
+                    ? JSON.parse(license.restrictions)
+                    : [],
+                endorsements: license.endorsements
+                    ? JSON.parse(license.endorsements)
+                    : [],
+            };
+        }
+        return null;
+    }
+    /**
+     * Update license information
+     */
+    async updateLicense(licenseId, data) {
+        const { restrictions, endorsements, ...rest } = data;
+        return await prisma.drivingLicense.update({
+            where: { id: licenseId },
+            data: {
+                ...rest,
+                restrictions: restrictions ? JSON.stringify(restrictions) : undefined,
+                endorsements: endorsements ? JSON.stringify(endorsements) : undefined,
+            },
+            include: {
+                citizen: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        phone: true,
+                        profileImage: true,
+                        dateOfBirth: true,
+                        nidNo: true,
+                        birthCertificateNo: true,
+                        presentAddress: true,
+                        presentCity: true,
+                        presentDistrict: true,
+                        gender: true,
+                        bloodGroup: true,
+                    },
+                },
+            },
+        });
+    }
+    /**
+     * Deduct gems from license (Police only)
+     * If gems reach 0, blacklist the license
+     */
+    async deductGems(data) {
+        const { licenseId, gemsToDeduct, reason, deductedBy } = data;
+        if (gemsToDeduct <= 0) {
+            throw new Error("Gems to deduct must be positive");
+        }
+        const license = await prisma.drivingLicense.findUnique({
+            where: { id: licenseId },
+        });
+        if (!license) {
+            throw new Error("License not found");
+        }
+        if (license.isBlacklisted) {
+            throw new Error("License is already blacklisted. Must pay ৳5000 penalty and reapply.");
+        }
+        const newGems = Math.max(0, license.gems - gemsToDeduct);
+        const shouldBlacklist = newGems === 0;
+        const updatedLicense = await prisma.drivingLicense.update({
+            where: { id: licenseId },
+            data: {
+                gems: newGems,
+                isBlacklisted: shouldBlacklist,
+                blacklistedAt: shouldBlacklist ? new Date() : undefined,
+                blacklistReason: shouldBlacklist
+                    ? `All gems depleted. Reason: ${reason}`
+                    : undefined,
+                isActive: !shouldBlacklist, // Deactivate if blacklisted
+                violationCount: { increment: 1 },
+                lastViolationAt: new Date(),
+            },
+            include: {
+                citizen: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        phone: true,
+                        profileImage: true,
+                        dateOfBirth: true,
+                        nidNo: true,
+                        birthCertificateNo: true,
+                        presentAddress: true,
+                        presentCity: true,
+                        presentDistrict: true,
+                        gender: true,
+                        bloodGroup: true,
+                    },
+                },
+            },
+        });
+        // Log the gem deduction
+        console.log(`🔻 Gems deducted from license ${license.licenseNo}:`, {
+            previous: license.gems,
+            deducted: gemsToDeduct,
+            new: newGems,
+            blacklisted: shouldBlacklist,
+            reason,
+            deductedBy,
+        });
+        return {
+            license: {
+                ...updatedLicense,
+                restrictions: updatedLicense.restrictions
+                    ? JSON.parse(updatedLicense.restrictions)
+                    : [],
+                endorsements: updatedLicense.endorsements
+                    ? JSON.parse(updatedLicense.endorsements)
+                    : [],
+            },
+            blacklisted: shouldBlacklist,
+            remainingGems: newGems,
         };
+    }
+    /**
+     * Pay blacklist penalty and allow reapplication
+     */
+    async payBlacklistPenalty(licenseId) {
+        const license = await prisma.drivingLicense.findUnique({
+            where: { id: licenseId },
+        });
+        if (!license) {
+            throw new Error("License not found");
+        }
+        if (!license.isBlacklisted) {
+            throw new Error("License is not blacklisted");
+        }
+        await prisma.drivingLicense.update({
+            where: { id: licenseId },
+            data: {
+                blacklistPenaltyPaid: true,
+            },
+        });
+        console.log(`💰 Blacklist penalty paid for license ${license.licenseNo} (৳5000)`);
+    }
+    /**
+     * Check if license is valid for driving
+     */
+    async isLicenseValid(licenseId) {
+        const license = await prisma.drivingLicense.findUnique({
+            where: { id: licenseId },
+        });
+        if (!license) {
+            return { valid: false, reason: "License not found" };
+        }
+        if (!license.isActive) {
+            return { valid: false, reason: "License is inactive" };
+        }
+        if (license.isBlacklisted) {
+            return {
+                valid: false,
+                reason: "License is blacklisted. Must pay ৳5000 penalty and reapply for driving test",
+            };
+        }
+        if (license.isSuspended) {
+            const suspendedUntil = license.suspendedUntil
+                ? new Date(license.suspendedUntil)
+                : null;
+            if (suspendedUntil && suspendedUntil > new Date()) {
+                return {
+                    valid: false,
+                    reason: `License is suspended until ${suspendedUntil.toLocaleDateString()}`,
+                };
+            }
+        }
+        if (license.expiryDate < new Date()) {
+            return { valid: false, reason: "License has expired" };
+        }
+        return { valid: true };
+    }
+    /**
+     * Get all blacklisted licenses
+     */
+    async getBlacklistedLicenses() {
+        return await prisma.drivingLicense.findMany({
+            where: {
+                isBlacklisted: true,
+            },
+            include: {
+                citizen: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        phone: true,
+                        profileImage: true,
+                        dateOfBirth: true,
+                        nidNo: true,
+                        birthCertificateNo: true,
+                        presentAddress: true,
+                        presentCity: true,
+                        presentDistrict: true,
+                        gender: true,
+                        bloodGroup: true,
+                    },
+                },
+            },
+            orderBy: {
+                blacklistedAt: "desc",
+            },
+        });
     }
 }
+export default new DrivingLicenseService();
