@@ -1,11 +1,11 @@
-import * as express from "express";
+import type {
+  Request,
+  Response,
+  NextFunction,
+} from "express-serve-static-core";
 import { Prisma } from "@prisma/client";
 import { ZodError } from "zod";
 import { JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
-
-type Request = express.Request;
-type Response = express.Response;
-type NextFunction = express.NextFunction;
 
 /**
  * Custom error class for application-specific errors
