@@ -63,6 +63,9 @@ export class EmailService {
         user: config.email.smtpUser,
         pass: config.email.smtpPass,
       },
+      connectionTimeout: 10_000, // 10s
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
     });
   }
 
@@ -83,8 +86,17 @@ export class EmailService {
       await this.transporter.sendMail(mailOptions);
       console.log(`Email sent successfully to ${options.to}`);
     } catch (error) {
-      console.error("Failed to send email:", error);
-      throw new Error("Failed to send email");
+      const err = error as any;
+      console.error("Failed to send email:", {
+        code: err?.code,
+        command: err?.command,
+        message: err?.message,
+      });
+      throw new Error(
+        `Failed to send email: ${err?.code || "UNKNOWN"} ${
+          err?.command || ""
+        }`.trim()
+      );
     }
   }
 

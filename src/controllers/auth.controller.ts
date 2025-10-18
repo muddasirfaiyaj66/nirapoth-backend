@@ -101,19 +101,29 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // NOTE: CitizenGem is NOT created here
     // It will be created automatically when user adds their driving license
 
-    // Send verification email (skip in dev mode without email config)
+    // Send verification email (required in production)
     if (!autoVerifyInDev) {
       try {
         const emailService = new EmailService();
+        await emailService.testConnection();
         await emailService.sendVerificationEmail({
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
           verificationToken,
         });
-      } catch (emailError) {
+      } catch (emailError: any) {
         console.error("Failed to send verification email:", emailError);
-        // Don't fail registration if email fails
+        res.status(500).json({
+          success: false,
+          message: "Failed to send verification email",
+          errors: [
+            emailError?.message ||
+              "Email service unavailable. Please try again later.",
+          ],
+          statusCode: 500,
+        });
+        return;
       }
     } else {
       console.warn(
