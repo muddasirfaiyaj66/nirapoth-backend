@@ -8,6 +8,7 @@ import {
   verifyEmail,
   forgotPassword,
   resetPassword,
+  resendVerificationEmail,
 } from "../controllers/auth.controller";
 import {
   authRateLimiterMiddleware,
@@ -61,6 +62,18 @@ router.get("/me", authenticateToken, getCurrentUser);
  * @access  Public
  */
 router.get("/verify-email", verifyEmail);
+
+/**
+ * @route   POST /api/auth/resend-verification
+ * @desc    Resend email verification link
+ * @access  Public
+ * @rateLimit 3 attempts per hour per IP
+ */
+router.post(
+  "/resend-verification",
+  passwordResetRateLimiterMiddleware,
+  resendVerificationEmail
+);
 
 /**
  * @route   POST /api/auth/forgot-password

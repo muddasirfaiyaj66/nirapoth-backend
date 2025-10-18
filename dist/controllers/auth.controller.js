@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resetPassword = exports.forgotPassword = exports.verifyEmail = exports.getCurrentUser = exports.refreshToken = exports.logout = exports.login = exports.register = void 0;
+exports.resendVerificationEmail = exports.resetPassword = exports.forgotPassword = exports.verifyEmail = exports.getCurrentUser = exports.refreshToken = exports.logout = exports.login = exports.register = void 0;
 const client_1 = require("@prisma/client");
 const zod_1 = require("zod");
 const jwt_service_1 = require("../services/jwt.service");
@@ -78,20 +78,32 @@ const register = async (req, res) => {
         });
         // NOTE: CitizenGem is NOT created here
         // It will be created automatically when user adds their driving license
-        // Send verification email (skip in dev mode without email config)
+        // Send verification email (non-blocking in production)
+        let emailSent = false;
         if (!autoVerifyInDev) {
             try {
                 const emailService = new email_service_1.EmailService();
-                await emailService.sendVerificationEmail({
+                // Send email asynchronously without blocking registration
+                emailService
+                    .sendVerificationEmail({
                     email: user.email,
                     firstName: user.firstName,
                     lastName: user.lastName,
                     verificationToken,
+                })
+                    .then(() => {
+                    console.log(`✅ Verification email sent to ${user.email}`);
+                })
+                    .catch((emailError) => {
+                    console.error(`❌ Failed to send verification email to ${user.email}:`, emailError?.message);
+                    // Email failure doesn't block registration
                 });
+                emailSent = true;
             }
             catch (emailError) {
-                console.error("Failed to send verification email:", emailError);
-                // Don't fail registration if email fails
+                console.warn(`⚠️  Email service initialization failed for ${user.email}:`, emailError?.message);
+                // Continue with registration even if email service fails
+                emailSent = false;
             }
         }
         else {
@@ -101,7 +113,9 @@ const register = async (req, res) => {
             success: true,
             message: autoVerifyInDev
                 ? "User registered successfully. Email verification bypassed in development mode."
-                : "User registered successfully. Please check your email for verification link.",
+                : emailSent
+                    ? "User registered successfully. Please check your email for verification link."
+                    : "User registered successfully. Verification email will be sent shortly. You can also request a new verification link from login page.",
             data: { user },
             statusCode: 201,
         };
@@ -259,12 +273,15 @@ const login = async (req, res) => {
             secure: true, // Must be true for sameSite: "none"
             sameSite: "none", // Required for cross-origin requests (frontend on different domain)
             maxAge: 15 * 60 * 1000, // 15 minutes
+            // Enable CHIPS (partitioned third‑party cookies)
+            partitioned: true,
         });
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
             secure: true, // Must be true for sameSite: "none"
             sameSite: "none", // Required for cross-origin requests (frontend on different domain)
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            partitioned: true,
         });
         // Remove password from user object
         const { password, ...userWithoutPassword } = user;
@@ -334,11 +351,13 @@ const logout = async (req, res) => {
             httpOnly: true,
             secure: true,
             sameSite: "none",
+            partitioned: true,
         });
         res.clearCookie("refreshToken", {
             httpOnly: true,
             secure: true,
             sameSite: "none",
+            partitioned: true,
         });
         const response = {
             success: true,
@@ -460,6 +479,7 @@ const refreshToken = async (req, res) => {
             secure: true,
             sameSite: "none",
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            partitioned: true,
         });
         // Add default values for new fields if they don't exist
         const userResponse = {
@@ -767,3 +787,109 @@ const resetPassword = async (req, res) => {
     }
 };
 exports.resetPassword = resetPassword;
+/**
+ * Resend Verification Email Controller
+ * @param req - Express request object
+ * @param res - Express response object
+ */
+const resendVerificationEmail = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email || typeof email !== "string") {
+            res.status(400).json({
+                success: false,
+                message: "Email is required",
+                statusCode: 400,
+            });
+            return;
+        }
+        // Find user by email
+        const user = await prisma.user.findUnique({
+            where: { email: email.toLowerCase().trim() },
+        });
+        if (!user) {
+            // Don't reveal if user exists or not for security
+            res.status(200).json({
+                success: true,
+                message: "If an account with that email exists and is not verified, a verification email will be sent.",
+                statusCode: 200,
+            });
+            return;
+        }
+        // Check if already verified
+        if (user.isEmailVerified) {
+            res.status(400).json({
+                success: false,
+                message: "Email is already verified. Please login.",
+                statusCode: 400,
+            });
+            return;
+        }
+        // Generate new verification token
+        const verificationToken = token_service_1.TokenService.generateToken();
+        const hashedToken = token_service_1.TokenService.hashToken(verificationToken);
+        const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        // Update user with new token
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                emailVerificationToken: hashedToken,
+                emailVerificationExpires: tokenExpires,
+                updatedAt: new Date(),
+            },
+        });
+        // Send verification email (non-blocking)
+        let emailSent = false;
+        try {
+            const emailService = new email_service_1.EmailService();
+            // Check if email service is configured
+            if (!emailService.isEmailServiceConfigured()) {
+                console.warn(`⚠️  Email service not configured. Verification email cannot be sent to ${user.email}`);
+                res.status(503).json({
+                    success: false,
+                    message: "Email service is temporarily unavailable. Please contact support for manual verification.",
+                    statusCode: 503,
+                });
+                return;
+            }
+            // Send email asynchronously
+            emailService
+                .sendVerificationEmail({
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                verificationToken,
+            })
+                .then(() => {
+                console.log(`✅ Verification email resent successfully to ${user.email}`);
+            })
+                .catch((emailError) => {
+                console.error(`❌ Failed to resend verification email to ${user.email}:`, emailError?.message);
+            });
+            emailSent = true;
+        }
+        catch (emailError) {
+            console.error(`⚠️  Email service error for ${user.email}:`, emailError?.message);
+            res.status(503).json({
+                success: false,
+                message: "Email service is temporarily unavailable. Please try again later or contact support.",
+                statusCode: 503,
+            });
+            return;
+        }
+        res.status(200).json({
+            success: true,
+            message: "Verification email sent successfully. Please check your inbox and spam folder.",
+            statusCode: 200,
+        });
+    }
+    catch (error) {
+        console.error("Resend verification email error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            statusCode: 500,
+        });
+    }
+};
+exports.resendVerificationEmail = resendVerificationEmail;

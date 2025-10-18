@@ -11,7 +11,15 @@ const env_1 = require("../config/env");
  */
 class EmailService {
     transporter;
+    isConfigured = false;
     constructor() {
+        // Check if SMTP credentials are properly configured
+        this.isConfigured = !!(env_1.config.email.smtpUser &&
+            env_1.config.email.smtpPass &&
+            env_1.config.email.smtpHost);
+        if (!this.isConfigured) {
+            console.warn("⚠️  Email service not configured. SMTP credentials are missing.");
+        }
         this.transporter = nodemailer_1.default.createTransport({
             host: env_1.config.email.smtpHost,
             port: env_1.config.email.smtpPort,
@@ -20,13 +28,33 @@ class EmailService {
                 user: env_1.config.email.smtpUser,
                 pass: env_1.config.email.smtpPass,
             },
+            connectionTimeout: 30_000, // 30s - increased for Render
+            greetingTimeout: 30_000,
+            socketTimeout: 45_000, // 45s - increased for Render
+            pool: true, // Use connection pooling
+            maxConnections: 5,
+            maxMessages: 10,
+            // Add TLS options for better compatibility
+            tls: {
+                rejectUnauthorized: false, // Allow self-signed certificates
+                ciphers: "SSLv3",
+            },
         });
+    }
+    /**
+     * Check if email service is properly configured
+     */
+    isEmailServiceConfigured() {
+        return this.isConfigured;
     }
     /**
      * Send email using the configured transporter
      * @param options - Email options
      */
     async sendEmail(options) {
+        if (!this.isConfigured) {
+            throw new Error("Email service not configured. Please set SMTP credentials.");
+        }
         try {
             const mailOptions = {
                 from: `"${env_1.config.email.fromName}" <${env_1.config.email.fromEmail}>`,
@@ -36,11 +64,19 @@ class EmailService {
                 text: options.text || options.html.replace(/<[^>]*>/g, ""),
             };
             await this.transporter.sendMail(mailOptions);
-            console.log(`Email sent successfully to ${options.to}`);
+            console.log(`✅ Email sent successfully to ${options.to}`);
         }
         catch (error) {
-            console.error("Failed to send email:", error);
-            throw new Error("Failed to send email");
+            const err = error;
+            console.error("❌ Failed to send email:", {
+                to: options.to,
+                code: err?.code,
+                command: err?.command,
+                message: err?.message,
+                responseCode: err?.responseCode,
+                response: err?.response,
+            });
+            throw new Error(`Failed to send email: ${err?.code || "UNKNOWN"} ${err?.command || ""}`.trim());
         }
     }
     /**

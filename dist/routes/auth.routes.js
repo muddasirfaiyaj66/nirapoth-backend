@@ -47,6 +47,13 @@ router.get("/me", auth_middleware_1.authenticateToken, auth_controller_1.getCurr
  */
 router.get("/verify-email", auth_controller_1.verifyEmail);
 /**
+ * @route   POST /api/auth/resend-verification
+ * @desc    Resend email verification link
+ * @access  Public
+ * @rateLimit 3 attempts per hour per IP
+ */
+router.post("/resend-verification", rateLimit_middleware_1.passwordResetRateLimiterMiddleware, auth_controller_1.resendVerificationEmail);
+/**
  * @route   POST /api/auth/forgot-password
  * @desc    Send password reset email
  * @access  Public

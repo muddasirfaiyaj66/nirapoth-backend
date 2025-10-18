@@ -53,8 +53,22 @@ interface DebtPaymentEmailData {
  */
 export class EmailService {
   private transporter: nodemailer.Transporter;
+  private isConfigured: boolean = false;
 
   constructor() {
+    // Check if SMTP credentials are properly configured
+    this.isConfigured = !!(
+      config.email.smtpUser &&
+      config.email.smtpPass &&
+      config.email.smtpHost
+    );
+
+    if (!this.isConfigured) {
+      console.warn(
+        "⚠️  Email service not configured. SMTP credentials are missing."
+      );
+    }
+
     this.transporter = nodemailer.createTransport({
       host: config.email.smtpHost,
       port: config.email.smtpPort,
@@ -63,10 +77,25 @@ export class EmailService {
         user: config.email.smtpUser,
         pass: config.email.smtpPass,
       },
-      connectionTimeout: 10_000, // 10s
-      greetingTimeout: 10_000,
-      socketTimeout: 20_000,
+      connectionTimeout: 30_000, // 30s - increased for Render
+      greetingTimeout: 30_000,
+      socketTimeout: 45_000, // 45s - increased for Render
+      pool: true, // Use connection pooling
+      maxConnections: 5,
+      maxMessages: 10,
+      // Add TLS options for better compatibility
+      tls: {
+        rejectUnauthorized: false, // Allow self-signed certificates
+        ciphers: "SSLv3",
+      },
     });
+  }
+
+  /**
+   * Check if email service is properly configured
+   */
+  isEmailServiceConfigured(): boolean {
+    return this.isConfigured;
   }
 
   /**
@@ -74,6 +103,12 @@ export class EmailService {
    * @param options - Email options
    */
   private async sendEmail(options: EmailOptions): Promise<void> {
+    if (!this.isConfigured) {
+      throw new Error(
+        "Email service not configured. Please set SMTP credentials."
+      );
+    }
+
     try {
       const mailOptions = {
         from: `"${config.email.fromName}" <${config.email.fromEmail}>`,
@@ -84,13 +119,16 @@ export class EmailService {
       };
 
       await this.transporter.sendMail(mailOptions);
-      console.log(`Email sent successfully to ${options.to}`);
+      console.log(`✅ Email sent successfully to ${options.to}`);
     } catch (error) {
       const err = error as any;
-      console.error("Failed to send email:", {
+      console.error("❌ Failed to send email:", {
+        to: options.to,
         code: err?.code,
         command: err?.command,
         message: err?.message,
+        responseCode: err?.responseCode,
+        response: err?.response,
       });
       throw new Error(
         `Failed to send email: ${err?.code || "UNKNOWN"} ${

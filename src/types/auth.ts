@@ -13,20 +13,14 @@ export interface JWTPayload {
 // Authentication request interface extending Express Request
 // Explicit AuthRequest to satisfy TS on all environments (Render/Express 5)
 export interface AuthRequest extends Request {
-  // Augmented auth fields
-  user?: (User & { userId?: string }) | Record<string, any>;
+  // Augmented auth fields - matches express-augment.d.ts
+  user?: {
+    id: string;
+    email: string;
+    role: UserRole;
+  } & Record<string, any>;
   userId?: string;
   userRole?: UserRole;
-  cookies?: Record<string, string>;
-  // Ensure common Express fields are present in all build environments
-  query: any;
-  params: any;
-  body: any;
-  headers: any;
-  method: string;
-  path: string;
-  originalUrl: string;
-  app?: any;
 }
 
 // User registration interface
