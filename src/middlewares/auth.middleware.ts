@@ -1,4 +1,4 @@
-import type { Response, NextFunction } from "express-serve-static-core";
+import type { Response, NextFunction } from "express";
 import { JWTService } from "../services/jwt.service";
 import { AuthRequest } from "../types/auth";
 import { PrismaClient } from "@prisma/client";

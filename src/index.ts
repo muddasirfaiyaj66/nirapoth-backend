@@ -1,4 +1,5 @@
 import express, { Request, Response } from "express";
+import cors from "cors";
 import cookieParser from "cookie-parser";
 import { PrismaClient } from "@prisma/client";
 import { createServer } from "http";
@@ -13,6 +14,7 @@ import {
   requestLogger,
   requestSizeLimiter,
   responseTimeHeader,
+  corsOptions,
 } from "./middlewares/security.middleware";
 import { rateLimiter } from "./middlewares/rateLimit.middleware";
 import {
@@ -61,9 +63,12 @@ const PORT = config.port;
 // Trust proxy for accurate IP addresses (important for rate limiting)
 app.set("trust proxy", 1);
 
-// Security middleware (must be first)
-app.use(securityMiddleware);
+// CORS middleware (must be first, before Helmet)
 app.use(corsMiddleware);
+// Preflight will be handled by the global CORS middleware; no explicit wildcard route needed
+
+// Security middleware
+app.use(securityMiddleware);
 app.use(responseTimeHeader);
 
 // Body parsing middleware

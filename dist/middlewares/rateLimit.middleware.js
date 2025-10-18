@@ -16,6 +16,10 @@ const rateLimiterMemory = new rate_limiter_flexible_1.RateLimiterMemory({
  * @param next - Express next function
  */
 const rateLimiter = async (req, res, next) => {
+    // Skip CORS preflight
+    if (req.method === "OPTIONS") {
+        return next();
+    }
     try {
         const key = req.ip || "unknown";
         await rateLimiterMemory.consume(key);

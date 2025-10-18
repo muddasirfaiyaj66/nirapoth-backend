@@ -1,4 +1,4 @@
-import type { Response, NextFunction } from "express-serve-static-core";
+import type { Response, NextFunction } from "express";
 import { UserRole } from "@prisma/client";
 import { AuthenticatedRequest } from "../types/auth";
 

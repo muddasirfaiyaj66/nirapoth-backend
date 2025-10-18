@@ -50,9 +50,11 @@ const prisma = new client_1.PrismaClient();
 const PORT = env_1.config.port;
 // Trust proxy for accurate IP addresses (important for rate limiting)
 exports.app.set("trust proxy", 1);
-// Security middleware (must be first)
-exports.app.use(security_middleware_1.securityMiddleware);
+// CORS middleware (must be first, before Helmet)
 exports.app.use(security_middleware_1.corsMiddleware);
+// Preflight will be handled by the global CORS middleware; no explicit wildcard route needed
+// Security middleware
+exports.app.use(security_middleware_1.securityMiddleware);
 exports.app.use(security_middleware_1.responseTimeHeader);
 // Body parsing middleware
 // Increased limit to 150mb to handle base64-encoded files (temporary until Cloudinary is set up)

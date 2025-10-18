@@ -1,8 +1,4 @@
-import type {
-  Request,
-  Response,
-  NextFunction,
-} from "express-serve-static-core";
+import type { Request, Response, NextFunction } from "express";
 import { RateLimiterMemory, RateLimiterRedis } from "rate-limiter-flexible";
 import { config } from "../config/env";
 
@@ -24,6 +20,10 @@ export const rateLimiter = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  // Skip CORS preflight
+  if (req.method === "OPTIONS") {
+    return next();
+  }
   try {
     const key = req.ip || "unknown";
     await rateLimiterMemory.consume(key);

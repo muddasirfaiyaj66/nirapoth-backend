@@ -1,8 +1,4 @@
-import type {
-  Request,
-  Response,
-  NextFunction,
-} from "express-serve-static-core";
+import type { Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import { config } from "../config/env";

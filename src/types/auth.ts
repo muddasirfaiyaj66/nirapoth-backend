@@ -1,5 +1,5 @@
 import { User, UserRole } from "@prisma/client";
-import type { Request } from "express-serve-static-core";
+import type { Request } from "express";
 
 // JWT Payload interface
 export interface JWTPayload {
@@ -11,11 +11,7 @@ export interface JWTPayload {
 }
 
 // Authentication request interface extending Express Request
-export interface AuthRequest extends Request {
-  user?: User;
-  userId?: string;
-  userRole?: UserRole;
-}
+export interface AuthRequest extends Request {}
 
 // User registration interface
 export interface RegisterUserData {
