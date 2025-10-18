@@ -305,6 +305,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       secure: true, // Must be true for sameSite: "none"
       sameSite: "none", // Required for cross-origin requests (frontend on different domain)
       maxAge: 15 * 60 * 1000, // 15 minutes
+      // Enable CHIPS (partitioned third‑party cookies)
+      partitioned: true as any,
     });
 
     res.cookie("refreshToken", refreshToken, {
@@ -312,6 +314,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       secure: true, // Must be true for sameSite: "none"
       sameSite: "none", // Required for cross-origin requests (frontend on different domain)
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      partitioned: true as any,
     });
 
     // Remove password from user object
@@ -386,11 +389,13 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
+      partitioned: true as any,
     });
     res.clearCookie("refreshToken", {
       httpOnly: true,
       secure: true,
       sameSite: "none",
+      partitioned: true as any,
     });
 
     const response: SuccessResponse = {
@@ -524,6 +529,7 @@ export const refreshToken = async (
       secure: true,
       sameSite: "none",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      partitioned: true as any,
     });
 
     // Add default values for new fields if they don't exist
