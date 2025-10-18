@@ -1,10 +1,13 @@
-import { AIWebhookService } from "../services/aiWebhook.service";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.webhookHealthCheck = exports.violationDetectionWebhook = exports.accidentDetectionWebhook = exports.fireDetectionWebhook = void 0;
+const aiWebhook_service_1 = require("../services/aiWebhook.service");
 /**
  * @route POST /api/ai-webhook/fire-detection
  * @desc AI webhook for fire detection
  * @access Public (AI System)
  */
-export const fireDetectionWebhook = async (req, res) => {
+const fireDetectionWebhook = async (req, res) => {
     try {
         console.log("🔥 Fire Detection Webhook Called:", req.body);
         const { imageUrl, location, severity, confidence } = req.body;
@@ -16,7 +19,7 @@ export const fireDetectionWebhook = async (req, res) => {
             });
         }
         // Process fire detection
-        const incident = await AIWebhookService.handleFireDetection({
+        const incident = await aiWebhook_service_1.AIWebhookService.handleFireDetection({
             imageUrl,
             location,
             severity: severity || "HIGH",
@@ -48,12 +51,13 @@ export const fireDetectionWebhook = async (req, res) => {
         });
     }
 };
+exports.fireDetectionWebhook = fireDetectionWebhook;
 /**
  * @route POST /api/ai-webhook/accident-detection
  * @desc AI webhook for accident detection
  * @access Public (AI System)
  */
-export const accidentDetectionWebhook = async (req, res) => {
+const accidentDetectionWebhook = async (req, res) => {
     try {
         console.log("🚗 Accident Detection Webhook Called:", req.body);
         const { imageUrl, location, severity, confidence, vehiclesInvolved } = req.body;
@@ -65,7 +69,7 @@ export const accidentDetectionWebhook = async (req, res) => {
             });
         }
         // Process accident detection
-        const incident = await AIWebhookService.handleAccidentDetection({
+        const incident = await aiWebhook_service_1.AIWebhookService.handleAccidentDetection({
             imageUrl,
             location,
             severity: severity || "MODERATE",
@@ -98,12 +102,13 @@ export const accidentDetectionWebhook = async (req, res) => {
         });
     }
 };
+exports.accidentDetectionWebhook = accidentDetectionWebhook;
 /**
  * @route POST /api/ai-webhook/violation-detection
  * @desc AI webhook for traffic violation detection
  * @access Public (AI System)
  */
-export const violationDetectionWebhook = async (req, res) => {
+const violationDetectionWebhook = async (req, res) => {
     try {
         console.log("⚠️ Violation Detection Webhook Called:", req.body);
         const { imageUrl, numberPlate, violationType, location, confidence, speed, speedLimit } = req.body;
@@ -115,7 +120,7 @@ export const violationDetectionWebhook = async (req, res) => {
             });
         }
         // Process violation detection
-        const result = await AIWebhookService.handleViolationDetection({
+        const result = await aiWebhook_service_1.AIWebhookService.handleViolationDetection({
             imageUrl,
             numberPlate,
             violationType,
@@ -151,12 +156,13 @@ export const violationDetectionWebhook = async (req, res) => {
         });
     }
 };
+exports.violationDetectionWebhook = violationDetectionWebhook;
 /**
  * @route GET /api/ai-webhook/health
  * @desc Health check for AI webhook system
  * @access Public
  */
-export const webhookHealthCheck = async (req, res) => {
+const webhookHealthCheck = async (req, res) => {
     res.status(200).json({
         success: true,
         message: "AI Webhook system is operational",
@@ -168,3 +174,4 @@ export const webhookHealthCheck = async (req, res) => {
         timestamp: new Date().toISOString(),
     });
 };
+exports.webhookHealthCheck = webhookHealthCheck;

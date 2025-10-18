@@ -1,16 +1,31 @@
-import { Server as SocketIOServer } from "socket.io";
-import { config } from "./env";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.initializeSocket = initializeSocket;
+exports.getIO = getIO;
+exports.sendNotificationToUser = sendNotificationToUser;
+exports.sendNotificationToRole = sendNotificationToRole;
+exports.broadcastNotification = broadcastNotification;
+exports.sendUrgentNotification = sendUrgentNotification;
+exports.broadcastUrgentNotification = broadcastUrgentNotification;
+exports.getConnectedUsersCount = getConnectedUsersCount;
+exports.isUserConnected = isUserConnected;
+const socket_io_1 = require("socket.io");
+const env_1 = require("./env");
 let io = null;
 /**
  * Initialize Socket.IO server
  */
-export function initializeSocket(httpServer) {
-    io = new SocketIOServer(httpServer, {
+function initializeSocket(httpServer) {
+    io = new socket_io_1.Server(httpServer, {
         cors: {
-            origin: config.cors.origin || "http://localhost:3000",
+            origin: env_1.config.cors.origin || "http://localhost:3000",
             methods: ["GET", "POST"],
             credentials: true,
         },
+        // Prioritize polling for Vercel compatibility (Hobby plan doesn't support WebSockets)
+        transports: ["polling", "websocket"],
+        // Allow upgrade to websocket if available (won't work on Vercel Hobby, but will try)
+        allowUpgrades: true,
         pingTimeout: 60000,
         pingInterval: 25000,
     });
@@ -45,7 +60,7 @@ export function initializeSocket(httpServer) {
 /**
  * Get Socket.IO server instance
  */
-export function getIO() {
+function getIO() {
     if (!io) {
         throw new Error("Socket.IO not initialized. Call initializeSocket first.");
     }
@@ -54,7 +69,7 @@ export function getIO() {
 /**
  * Send notification to specific user
  */
-export function sendNotificationToUser(userId, notification) {
+function sendNotificationToUser(userId, notification) {
     if (!io) {
         console.warn("Socket.IO not initialized");
         return;
@@ -65,7 +80,7 @@ export function sendNotificationToUser(userId, notification) {
 /**
  * Send notification to all users with specific role
  */
-export function sendNotificationToRole(role, notification) {
+function sendNotificationToRole(role, notification) {
     if (!io) {
         console.warn("Socket.IO not initialized");
         return;
@@ -76,7 +91,7 @@ export function sendNotificationToRole(role, notification) {
 /**
  * Broadcast notification to all connected users
  */
-export function broadcastNotification(notification) {
+function broadcastNotification(notification) {
     if (!io) {
         console.warn("Socket.IO not initialized");
         return;
@@ -87,7 +102,7 @@ export function broadcastNotification(notification) {
 /**
  * Send urgent/emergency notification with special flag
  */
-export function sendUrgentNotification(userId, notification) {
+function sendUrgentNotification(userId, notification) {
     if (!io) {
         console.warn("Socket.IO not initialized");
         return;
@@ -98,7 +113,7 @@ export function sendUrgentNotification(userId, notification) {
 /**
  * Broadcast urgent notification to all users
  */
-export function broadcastUrgentNotification(notification) {
+function broadcastUrgentNotification(notification) {
     if (!io) {
         console.warn("Socket.IO not initialized");
         return;
@@ -109,7 +124,7 @@ export function broadcastUrgentNotification(notification) {
 /**
  * Get count of connected users
  */
-export function getConnectedUsersCount() {
+function getConnectedUsersCount() {
     if (!io) {
         return 0;
     }
@@ -118,7 +133,7 @@ export function getConnectedUsersCount() {
 /**
  * Check if user is connected
  */
-export async function isUserConnected(userId) {
+async function isUserConnected(userId) {
     if (!io) {
         return false;
     }

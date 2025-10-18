@@ -1,10 +1,13 @@
-import { Prisma } from "@prisma/client";
-import { ZodError } from "zod";
-import { JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.asyncHandler = exports.notFoundHandler = exports.errorHandler = exports.AppError = void 0;
+const client_1 = require("@prisma/client");
+const zod_1 = require("zod");
+const jsonwebtoken_1 = require("jsonwebtoken");
 /**
  * Custom error class for application-specific errors
  */
-export class AppError extends Error {
+class AppError extends Error {
     statusCode;
     isOperational;
     constructor(message, statusCode = 500, isOperational = true) {
@@ -14,6 +17,7 @@ export class AppError extends Error {
         Error.captureStackTrace(this, this.constructor);
     }
 }
+exports.AppError = AppError;
 /**
  * Global error handling middleware
  * @param err - Error object
@@ -21,7 +25,7 @@ export class AppError extends Error {
  * @param res - Express response object
  * @param next - Express next function
  */
-export const errorHandler = (err, req, res, next) => {
+const errorHandler = (err, req, res, next) => {
     let statusCode = 500;
     let message = "Internal Server Error";
     let errors;
@@ -40,13 +44,13 @@ export const errorHandler = (err, req, res, next) => {
         statusCode = err.statusCode;
         message = err.message;
     }
-    else if (err instanceof ZodError) {
+    else if (err instanceof zod_1.ZodError) {
         // Zod validation errors
         statusCode = 400;
         message = "Validation failed";
         errors = err.issues.map((error) => `${error.path.join(".")}: ${error.message}`);
     }
-    else if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    else if (err instanceof client_1.Prisma.PrismaClientKnownRequestError) {
         // Prisma database errors
         statusCode = 400;
         switch (err.code) {
@@ -67,17 +71,17 @@ export const errorHandler = (err, req, res, next) => {
                 message = "Database operation failed";
         }
     }
-    else if (err instanceof Prisma.PrismaClientValidationError) {
+    else if (err instanceof client_1.Prisma.PrismaClientValidationError) {
         // Prisma validation errors
         statusCode = 400;
         message = "Invalid data provided";
     }
-    else if (err instanceof JsonWebTokenError) {
+    else if (err instanceof jsonwebtoken_1.JsonWebTokenError) {
         // JWT errors
         statusCode = 401;
         message = "Invalid token";
     }
-    else if (err instanceof TokenExpiredError) {
+    else if (err instanceof jsonwebtoken_1.TokenExpiredError) {
         // JWT expired errors
         statusCode = 401;
         message = "Token has expired";
@@ -108,25 +112,28 @@ export const errorHandler = (err, req, res, next) => {
     };
     res.status(statusCode).json(errorResponse);
 };
+exports.errorHandler = errorHandler;
 /**
  * 404 handler for undefined routes
  * @param req - Express request object
  * @param res - Express response object
  */
-export const notFoundHandler = (req, res) => {
+const notFoundHandler = (req, res) => {
     res.status(404).json({
         success: false,
         message: `Route ${req.originalUrl} not found`,
         statusCode: 404,
     });
 };
+exports.notFoundHandler = notFoundHandler;
 /**
  * Async error wrapper to catch async errors in route handlers
  * @param fn - Async function to wrap
  * @returns Wrapped function that catches errors
  */
-export const asyncHandler = (fn) => {
+const asyncHandler = (fn) => {
     return (req, res, next) => {
         Promise.resolve(fn(req, res, next)).catch(next);
     };
 };
+exports.asyncHandler = asyncHandler;

@@ -1,64 +1,67 @@
-import { z } from "zod";
-import { UserProfileService, } from "../services/userProfile.service";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.UserProfileController = void 0;
+const zod_1 = require("zod");
+const userProfile_service_1 = require("../services/userProfile.service");
 // Validation schemas
-const updateProfileSchema = z.object({
-    firstName: z
+const updateProfileSchema = zod_1.z.object({
+    firstName: zod_1.z
         .string()
         .min(2, "First name must be at least 2 characters")
         .optional(),
-    lastName: z
+    lastName: zod_1.z
         .string()
         .min(2, "Last name must be at least 2 characters")
         .optional(),
-    phone: z.string().min(10, "Phone number must be valid").optional(),
-    dateOfBirth: z
+    phone: zod_1.z.string().min(10, "Phone number must be valid").optional(),
+    dateOfBirth: zod_1.z
         .string()
         .optional()
         .transform((str) => (str ? new Date(str) : undefined)),
-    gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
-    bloodGroup: z.string().optional(),
-    profileImage: z.string().url("Invalid image URL").optional(),
+    gender: zod_1.z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
+    bloodGroup: zod_1.z.string().optional(),
+    profileImage: zod_1.z.string().url("Invalid image URL").optional(),
     // Contact Information
-    alternatePhone: z.string().optional(),
-    emergencyContact: z.string().optional(),
-    emergencyContactPhone: z.string().optional(),
+    alternatePhone: zod_1.z.string().optional(),
+    emergencyContact: zod_1.z.string().optional(),
+    emergencyContactPhone: zod_1.z.string().optional(),
     // Present Address
-    presentAddress: z.string().optional(),
-    presentCity: z.string().optional(),
-    presentDistrict: z.string().optional(),
-    presentDivision: z.string().optional(),
-    presentPostalCode: z.string().optional(),
+    presentAddress: zod_1.z.string().optional(),
+    presentCity: zod_1.z.string().optional(),
+    presentDistrict: zod_1.z.string().optional(),
+    presentDivision: zod_1.z.string().optional(),
+    presentPostalCode: zod_1.z.string().optional(),
     // Permanent Address
-    permanentAddress: z.string().optional(),
-    permanentCity: z.string().optional(),
-    permanentDistrict: z.string().optional(),
-    permanentDivision: z.string().optional(),
-    permanentPostalCode: z.string().optional(),
+    permanentAddress: zod_1.z.string().optional(),
+    permanentCity: zod_1.z.string().optional(),
+    permanentDistrict: zod_1.z.string().optional(),
+    permanentDivision: zod_1.z.string().optional(),
+    permanentPostalCode: zod_1.z.string().optional(),
     // Professional Information (for police/fire service)
-    designation: z.string().optional(),
-    badgeNo: z.string().optional(),
-    joiningDate: z
+    designation: zod_1.z.string().optional(),
+    badgeNo: zod_1.z.string().optional(),
+    joiningDate: zod_1.z
         .string()
         .optional()
         .transform((str) => (str ? new Date(str) : undefined)),
-    rank: z.string().optional(),
-    specialization: z.string().optional(),
+    rank: zod_1.z.string().optional(),
+    specialization: zod_1.z.string().optional(),
 });
-const changePasswordSchema = z
+const changePasswordSchema = zod_1.z
     .object({
-    currentPassword: z.string().min(1, "Current password is required"),
-    newPassword: z
+    currentPassword: zod_1.z.string().min(1, "Current password is required"),
+    newPassword: zod_1.z
         .string()
         .min(8, "New password must be at least 8 characters"),
-    confirmPassword: z.string().min(1, "Confirm password is required"),
+    confirmPassword: zod_1.z.string().min(1, "Confirm password is required"),
 })
     .refine((data) => data.newPassword === data.confirmPassword, {
     message: "Passwords don't match",
     path: ["confirmPassword"],
 });
-const addLicenseSchema = z.object({
-    licenseNo: z.string().min(1, "License number is required"),
-    category: z.enum([
+const addLicenseSchema = zod_1.z.object({
+    licenseNo: zod_1.z.string().min(1, "License number is required"),
+    category: zod_1.z.enum([
         "LIGHT_VEHICLE",
         "MOTORCYCLE",
         "LIGHT_VEHICLE_MOTORCYCLE",
@@ -66,11 +69,11 @@ const addLicenseSchema = z.object({
         "PSV",
         "GOODS_VEHICLE",
     ]),
-    issueDate: z.string().transform((str) => new Date(str)),
-    expiryDate: z.string().transform((str) => new Date(str)),
-    issuingAuthority: z.string().min(1, "Issuing authority is required"),
+    issueDate: zod_1.z.string().transform((str) => new Date(str)),
+    expiryDate: zod_1.z.string().transform((str) => new Date(str)),
+    issuingAuthority: zod_1.z.string().min(1, "Issuing authority is required"),
 });
-export class UserProfileController {
+class UserProfileController {
     /**
      * Get complete user profile
      */
@@ -85,7 +88,7 @@ export class UserProfileController {
                 });
                 return;
             }
-            const profile = await UserProfileService.getUserProfile(userId);
+            const profile = await userProfile_service_1.UserProfileService.getUserProfile(userId);
             res.status(200).json({
                 success: true,
                 message: "Profile retrieved successfully",
@@ -125,7 +128,7 @@ export class UserProfileController {
                 return;
             }
             const validatedData = updateProfileSchema.parse(req.body);
-            const updatedProfile = await UserProfileService.updateProfile(userId, validatedData);
+            const updatedProfile = await userProfile_service_1.UserProfileService.updateProfile(userId, validatedData);
             res.status(200).json({
                 success: true,
                 message: "Profile updated successfully",
@@ -135,7 +138,7 @@ export class UserProfileController {
         }
         catch (error) {
             console.error("Error updating profile:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -176,7 +179,7 @@ export class UserProfileController {
                 return;
             }
             const validatedData = changePasswordSchema.parse(req.body);
-            const result = await UserProfileService.updatePassword(userId, validatedData.currentPassword, validatedData.newPassword);
+            const result = await userProfile_service_1.UserProfileService.updatePassword(userId, validatedData.currentPassword, validatedData.newPassword);
             res.status(200).json({
                 success: true,
                 message: result.message,
@@ -185,7 +188,7 @@ export class UserProfileController {
         }
         catch (error) {
             console.error("Error changing password:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -225,7 +228,7 @@ export class UserProfileController {
                 });
                 return;
             }
-            const licenses = await UserProfileService.getUserDrivingLicenses(userId);
+            const licenses = await userProfile_service_1.UserProfileService.getUserDrivingLicenses(userId);
             res.status(200).json({
                 success: true,
                 message: "Driving licenses retrieved successfully",
@@ -257,7 +260,7 @@ export class UserProfileController {
                 return;
             }
             const validatedData = addLicenseSchema.parse(req.body);
-            const license = await UserProfileService.addDrivingLicense(userId, validatedData);
+            const license = await userProfile_service_1.UserProfileService.addDrivingLicense(userId, validatedData);
             res.status(201).json({
                 success: true,
                 message: "Driving license added successfully",
@@ -267,7 +270,7 @@ export class UserProfileController {
         }
         catch (error) {
             console.error("Error adding driving license:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -305,7 +308,7 @@ export class UserProfileController {
                 });
                 return;
             }
-            const statistics = await UserProfileService.getUserStatistics(userId);
+            const statistics = await userProfile_service_1.UserProfileService.getUserStatistics(userId);
             res.status(200).json({
                 success: true,
                 message: "User statistics retrieved successfully",
@@ -345,7 +348,7 @@ export class UserProfileController {
                 });
                 return;
             }
-            const result = await UserProfileService.uploadProfileImage(userId, imageUrl);
+            const result = await userProfile_service_1.UserProfileService.uploadProfileImage(userId, imageUrl);
             res.status(200).json({
                 success: true,
                 message: "Profile image updated successfully",
@@ -376,8 +379,8 @@ export class UserProfileController {
                 });
                 return;
             }
-            const profile = await UserProfileService.getUserProfile(userId);
-            const validation = UserProfileService.validateProfileCompleteness(profile);
+            const profile = await userProfile_service_1.UserProfileService.getUserProfile(userId);
+            const validation = userProfile_service_1.UserProfileService.validateProfileCompleteness(profile);
             res.status(200).json({
                 success: true,
                 message: "Profile validation completed",
@@ -402,7 +405,7 @@ export class UserProfileController {
             const { role } = req.params;
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 20;
-            const result = await UserProfileService.getUsersByRole(role, page, limit);
+            const result = await userProfile_service_1.UserProfileService.getUsersByRole(role, page, limit);
             res.status(200).json({
                 success: true,
                 message: `Users with role ${role} retrieved successfully`,
@@ -421,3 +424,4 @@ export class UserProfileController {
         }
     }
 }
+exports.UserProfileController = UserProfileController;

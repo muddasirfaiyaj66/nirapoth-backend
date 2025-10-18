@@ -1,40 +1,42 @@
-import { Router } from "express";
-import { authenticateToken } from "../middlewares/auth.middleware";
-import { adminOnly } from "../middlewares/security.middleware";
-import { AdminController } from "../controllers/admin.controller";
-const router = Router();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const security_middleware_1 = require("../middlewares/security.middleware");
+const admin_controller_1 = require("../controllers/admin.controller");
+const router = (0, express_1.Router)();
 // All admin routes require authentication and admin role
-router.use(authenticateToken);
-router.use(adminOnly);
+router.use(auth_middleware_1.authenticateToken);
+router.use(security_middleware_1.adminOnly);
 // Dashboard overview
-router.get("/overview", AdminController.getAdminOverview);
+router.get("/overview", admin_controller_1.AdminController.getAdminOverview);
 // User management routes
-router.get("/users", AdminController.getAllUsers);
-router.get("/users/stats", AdminController.getUserStats);
-router.get("/users/verification", AdminController.getPendingVerifications);
-router.get("/users/roles", AdminController.getRoleManagement);
-router.get("/users/blocked", AdminController.getBlockedUsers);
-router.post("/users/create", AdminController.createUser);
-router.post("/users/update-role", AdminController.updateUserRole);
-router.post("/users/verify", AdminController.verifyUser);
-router.post("/users/block", AdminController.blockUser);
-router.post("/users/unblock", AdminController.unblockUser);
-router.post("/users/delete", AdminController.softDeleteUser);
+router.get("/users", admin_controller_1.AdminController.getAllUsers);
+router.get("/users/stats", admin_controller_1.AdminController.getUserStats);
+router.get("/users/verification", admin_controller_1.AdminController.getPendingVerifications);
+router.get("/users/roles", admin_controller_1.AdminController.getRoleManagement);
+router.get("/users/blocked", admin_controller_1.AdminController.getBlockedUsers);
+router.post("/users/create", admin_controller_1.AdminController.createUser);
+router.post("/users/update-role", admin_controller_1.AdminController.updateUserRole);
+router.post("/users/verify", admin_controller_1.AdminController.verifyUser);
+router.post("/users/block", admin_controller_1.AdminController.blockUser);
+router.post("/users/unblock", admin_controller_1.AdminController.unblockUser);
+router.post("/users/delete", admin_controller_1.AdminController.softDeleteUser);
 // Violation management routes
-router.get("/violations", AdminController.getAllViolations);
-router.post("/violations/update-status", AdminController.updateViolationStatus);
+router.get("/violations", admin_controller_1.AdminController.getAllViolations);
+router.post("/violations/update-status", admin_controller_1.AdminController.updateViolationStatus);
 // Analytics routes
-router.get("/analytics/test", AdminController.testAnalytics);
-router.get("/analytics/system", AdminController.getSystemAnalytics);
-router.get("/analytics/revenue", AdminController.getRevenueAnalytics);
-router.get("/analytics/traffic", AdminController.getTrafficAnalytics);
+router.get("/analytics/test", admin_controller_1.AdminController.testAnalytics);
+router.get("/analytics/system", admin_controller_1.AdminController.getSystemAnalytics);
+router.get("/analytics/revenue", admin_controller_1.AdminController.getRevenueAnalytics);
+router.get("/analytics/traffic", admin_controller_1.AdminController.getTrafficAnalytics);
 // Citizen gem management routes
-router.post("/citizens/gems/manage", AdminController.manageCitizenGems);
-router.post("/citizens/restriction", AdminController.setCitizenRestriction);
-router.get("/citizens/:citizenId/gems", AdminController.getCitizenGems);
+router.post("/citizens/gems/manage", admin_controller_1.AdminController.manageCitizenGems);
+router.post("/citizens/restriction", admin_controller_1.AdminController.setCitizenRestriction);
+router.get("/citizens/:citizenId/gems", admin_controller_1.AdminController.getCitizenGems);
 // System maintenance routes
-router.post("/system/enforce-constraints", AdminController.enforceConstraints);
+router.post("/system/enforce-constraints", admin_controller_1.AdminController.enforceConstraints);
 // System configuration routes (Super Admin only)
-router.get("/system/config", AdminController.getSystemConfig);
-router.put("/system/config", AdminController.updateSystemConfig);
-export default router;
+router.get("/system/config", admin_controller_1.AdminController.getSystemConfig);
+router.put("/system/config", admin_controller_1.AdminController.updateSystemConfig);
+exports.default = router;

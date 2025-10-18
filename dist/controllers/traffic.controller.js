@@ -1,19 +1,22 @@
-import { PrismaClient } from "@prisma/client";
-import { z } from "zod";
-const prisma = new PrismaClient();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TrafficController = void 0;
+const client_1 = require("@prisma/client");
+const zod_1 = require("zod");
+const prisma = new client_1.PrismaClient();
 // Validation schemas
-const nearbyTrafficSchema = z.object({
-    latitude: z.number().min(-90).max(90),
-    longitude: z.number().min(-180).max(180),
-    radius: z.number().min(1).max(50).default(10), // km
+const nearbyTrafficSchema = zod_1.z.object({
+    latitude: zod_1.z.number().min(-90).max(90),
+    longitude: zod_1.z.number().min(-180).max(180),
+    radius: zod_1.z.number().min(1).max(50).default(10), // km
 });
-const calculateRouteSchema = z.object({
-    originLat: z.number(),
-    originLng: z.number(),
-    destLat: z.number(),
-    destLng: z.number(),
+const calculateRouteSchema = zod_1.z.object({
+    originLat: zod_1.z.number(),
+    originLng: zod_1.z.number(),
+    destLat: zod_1.z.number(),
+    destLng: zod_1.z.number(),
 });
-export class TrafficController {
+class TrafficController {
     /**
      * Get nearby traffic jams within radius
      * Public endpoint - no auth required
@@ -229,6 +232,7 @@ export class TrafficController {
         }
     }
 }
+exports.TrafficController = TrafficController;
 // Helper function to analyze traffic density
 function analyzeTrafficDensity(violations, centerLat, centerLng) {
     // Group violations by road/location

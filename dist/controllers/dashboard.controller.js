@@ -1,9 +1,12 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DashboardController = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
 /**
  * Dashboard Controller for providing analytics data
  */
-export class DashboardController {
+class DashboardController {
     /**
      * Get dashboard statistics
      */
@@ -488,3 +491,4 @@ export class DashboardController {
         }
     }
 }
+exports.DashboardController = DashboardController;

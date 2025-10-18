@@ -1,6 +1,9 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
-export class FireIncidentService {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.FireIncidentService = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
+class FireIncidentService {
     static async createIncident(data) {
         const incident = await prisma.fireIncident.create({
             data: {
@@ -66,3 +69,4 @@ export class FireIncidentService {
         return { total, active, resolved: 0, critical: 0 };
     }
 }
+exports.FireIncidentService = FireIncidentService;

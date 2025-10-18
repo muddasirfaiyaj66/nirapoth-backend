@@ -1,8 +1,11 @@
-import { FireIncidentService } from "../services/fireIncident.service";
-import { FireTeamService } from "../services/fireTeam.service";
-export const createIncident = async (req, res) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getTeamStatistics = exports.updateTeamMemberStatus = exports.getTeamMemberById = exports.getAvailableTeamMembers = exports.getAllTeamMembers = exports.getFireStatistics = exports.deployEquipment = exports.assignTeamMembers = exports.updateIncidentStatus = exports.getIncidentById = exports.getAllIncidents = exports.createIncident = void 0;
+const fireIncident_service_1 = require("../services/fireIncident.service");
+const fireTeam_service_1 = require("../services/fireTeam.service");
+const createIncident = async (req, res) => {
     try {
-        const incident = await FireIncidentService.createIncident({
+        const incident = await fireIncident_service_1.FireIncidentService.createIncident({
             ...req.body,
             reporterUserId: req.user?.id,
         });
@@ -16,34 +19,38 @@ export const createIncident = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-export const getAllIncidents = async (req, res) => {
+exports.createIncident = createIncident;
+const getAllIncidents = async (req, res) => {
     try {
-        const result = await FireIncidentService.getAllIncidents(req.query);
+        const result = await fireIncident_service_1.FireIncidentService.getAllIncidents(req.query);
         res.json({ success: true, ...result });
     }
     catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-export const getIncidentById = async (req, res) => {
+exports.getAllIncidents = getAllIncidents;
+const getIncidentById = async (req, res) => {
     try {
-        const incident = await FireIncidentService.getIncidentById(req.params.id);
+        const incident = await fireIncident_service_1.FireIncidentService.getIncidentById(req.params.id);
         res.json({ success: true, data: incident });
     }
     catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-export const updateIncidentStatus = async (req, res) => {
+exports.getIncidentById = getIncidentById;
+const updateIncidentStatus = async (req, res) => {
     try {
-        const incident = await FireIncidentService.updateIncidentStatus(req.params.id, req.body.status);
+        const incident = await fireIncident_service_1.FireIncidentService.updateIncidentStatus(req.params.id, req.body.status);
         res.json({ success: true, data: incident });
     }
     catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-export const assignTeamMembers = async (req, res) => {
+exports.updateIncidentStatus = updateIncidentStatus;
+const assignTeamMembers = async (req, res) => {
     try {
         res.json({ success: true, message: "Assignment feature coming soon" });
     }
@@ -51,7 +58,8 @@ export const assignTeamMembers = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-export const deployEquipment = async (req, res) => {
+exports.assignTeamMembers = assignTeamMembers;
+const deployEquipment = async (req, res) => {
     try {
         res.json({
             success: true,
@@ -62,57 +70,64 @@ export const deployEquipment = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-export const getFireStatistics = async (req, res) => {
+exports.deployEquipment = deployEquipment;
+const getFireStatistics = async (req, res) => {
     try {
-        const stats = await FireIncidentService.getStatistics();
+        const stats = await fireIncident_service_1.FireIncidentService.getStatistics();
         res.json({ success: true, data: stats });
     }
     catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-export const getAllTeamMembers = async (req, res) => {
+exports.getFireStatistics = getFireStatistics;
+const getAllTeamMembers = async (req, res) => {
     try {
-        const result = await FireTeamService.getAllTeamMembers();
+        const result = await fireTeam_service_1.FireTeamService.getAllTeamMembers();
         res.json({ success: true, ...result });
     }
     catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-export const getAvailableTeamMembers = async (req, res) => {
+exports.getAllTeamMembers = getAllTeamMembers;
+const getAvailableTeamMembers = async (req, res) => {
     try {
-        const members = await FireTeamService.getAvailableMembers();
+        const members = await fireTeam_service_1.FireTeamService.getAvailableMembers();
         res.json({ success: true, data: members });
     }
     catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-export const getTeamMemberById = async (req, res) => {
+exports.getAvailableTeamMembers = getAvailableTeamMembers;
+const getTeamMemberById = async (req, res) => {
     try {
-        const member = await FireTeamService.getTeamMemberById(req.params.id);
+        const member = await fireTeam_service_1.FireTeamService.getTeamMemberById(req.params.id);
         res.json({ success: true, data: member });
     }
     catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-export const updateTeamMemberStatus = async (req, res) => {
+exports.getTeamMemberById = getTeamMemberById;
+const updateTeamMemberStatus = async (req, res) => {
     try {
-        const member = await FireTeamService.updateMemberStatus(req.params.id, req.body.status);
+        const member = await fireTeam_service_1.FireTeamService.updateMemberStatus(req.params.id, req.body.status);
         res.json({ success: true, data: member });
     }
     catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-export const getTeamStatistics = async (req, res) => {
+exports.updateTeamMemberStatus = updateTeamMemberStatus;
+const getTeamStatistics = async (req, res) => {
     try {
-        const stats = await FireTeamService.getTeamStatistics();
+        const stats = await fireTeam_service_1.FireTeamService.getTeamStatistics();
         res.json({ success: true, data: stats });
     }
     catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+exports.getTeamStatistics = getTeamStatistics;

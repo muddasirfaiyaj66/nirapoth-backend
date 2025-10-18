@@ -1,8 +1,11 @@
-import { ChatService } from "../services/chat.service";
-import { NotificationService } from "../services/notification.service";
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
-export const createChatRoom = async (req, res) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getUnreadCount = exports.markMessageAsRead = exports.getMessages = exports.sendMessage = exports.getChatRoom = exports.getMyChatRooms = exports.rejectChatRequest = exports.acceptChatRequest = exports.createChatRoom = void 0;
+const chat_service_1 = require("../services/chat.service");
+const notification_service_1 = require("../services/notification.service");
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
+const createChatRoom = async (req, res) => {
     try {
         const citizenId = req.user?.id;
         if (!citizenId) {
@@ -17,14 +20,14 @@ export const createChatRoom = async (req, res) => {
             });
             return;
         }
-        const chatRoom = await ChatService.createChatRoom(citizenId, driverId);
+        const chatRoom = await chat_service_1.ChatService.createChatRoom(citizenId, driverId);
         // Send notification to driver
         const citizen = await prisma.user.findUnique({
             where: { id: citizenId },
             select: { firstName: true, lastName: true },
         });
         if (citizen) {
-            await NotificationService.notifyChatRequestReceived(driverId, `${citizen.firstName} ${citizen.lastName}`, chatRoom.id).catch((err) => console.error("Failed to send notification:", err));
+            await notification_service_1.NotificationService.notifyChatRequestReceived(driverId, `${citizen.firstName} ${citizen.lastName}`, chatRoom.id).catch((err) => console.error("Failed to send notification:", err));
         }
         res.status(201).json({
             success: true,
@@ -40,7 +43,8 @@ export const createChatRoom = async (req, res) => {
         });
     }
 };
-export const acceptChatRequest = async (req, res) => {
+exports.createChatRoom = createChatRoom;
+const acceptChatRequest = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -48,14 +52,14 @@ export const acceptChatRequest = async (req, res) => {
             return;
         }
         const { roomId } = req.params;
-        const chatRoom = await ChatService.acceptChatRequest(roomId, userId);
+        const chatRoom = await chat_service_1.ChatService.acceptChatRequest(roomId, userId);
         // Send notification to citizen
         const driver = await prisma.user.findUnique({
             where: { id: userId },
             select: { firstName: true, lastName: true },
         });
         if (driver) {
-            await NotificationService.notifyChatRequestAccepted(chatRoom.citizenId, `${driver.firstName} ${driver.lastName}`, roomId).catch((err) => console.error("Failed to send notification:", err));
+            await notification_service_1.NotificationService.notifyChatRequestAccepted(chatRoom.citizenId, `${driver.firstName} ${driver.lastName}`, roomId).catch((err) => console.error("Failed to send notification:", err));
         }
         res.status(200).json({
             success: true,
@@ -71,7 +75,8 @@ export const acceptChatRequest = async (req, res) => {
         });
     }
 };
-export const rejectChatRequest = async (req, res) => {
+exports.acceptChatRequest = acceptChatRequest;
+const rejectChatRequest = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -79,14 +84,14 @@ export const rejectChatRequest = async (req, res) => {
             return;
         }
         const { roomId } = req.params;
-        const chatRoom = await ChatService.rejectChatRequest(roomId, userId);
+        const chatRoom = await chat_service_1.ChatService.rejectChatRequest(roomId, userId);
         // Send notification to citizen
         const driver = await prisma.user.findUnique({
             where: { id: userId },
             select: { firstName: true, lastName: true },
         });
         if (driver) {
-            await NotificationService.notifyChatRequestRejected(chatRoom.citizenId, `${driver.firstName} ${driver.lastName}`).catch((err) => console.error("Failed to send notification:", err));
+            await notification_service_1.NotificationService.notifyChatRequestRejected(chatRoom.citizenId, `${driver.firstName} ${driver.lastName}`).catch((err) => console.error("Failed to send notification:", err));
         }
         res.status(200).json({
             success: true,
@@ -102,14 +107,15 @@ export const rejectChatRequest = async (req, res) => {
         });
     }
 };
-export const getMyChatRooms = async (req, res) => {
+exports.rejectChatRequest = rejectChatRequest;
+const getMyChatRooms = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
             res.status(401).json({ success: false, message: "Unauthorized" });
             return;
         }
-        const chatRooms = await ChatService.getMyChatRooms(userId);
+        const chatRooms = await chat_service_1.ChatService.getMyChatRooms(userId);
         res.status(200).json({
             success: true,
             count: chatRooms.length,
@@ -124,7 +130,8 @@ export const getMyChatRooms = async (req, res) => {
         });
     }
 };
-export const getChatRoom = async (req, res) => {
+exports.getMyChatRooms = getMyChatRooms;
+const getChatRoom = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -132,7 +139,7 @@ export const getChatRoom = async (req, res) => {
             return;
         }
         const { roomId } = req.params;
-        const chatRoom = await ChatService.getChatRoom(roomId, userId);
+        const chatRoom = await chat_service_1.ChatService.getChatRoom(roomId, userId);
         res.status(200).json({
             success: true,
             data: chatRoom,
@@ -148,7 +155,8 @@ export const getChatRoom = async (req, res) => {
         });
     }
 };
-export const sendMessage = async (req, res) => {
+exports.getChatRoom = getChatRoom;
+const sendMessage = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -196,7 +204,7 @@ export const sendMessage = async (req, res) => {
             });
             return;
         }
-        const newMessage = await ChatService.sendMessage(roomId, userId, trimmedMessage, messageType, mediaUrl);
+        const newMessage = await chat_service_1.ChatService.sendMessage(roomId, userId, trimmedMessage, messageType, mediaUrl);
         // Send notification to the other user
         const chatRoom = await prisma.chatRoom.findUnique({
             where: { id: roomId },
@@ -208,7 +216,7 @@ export const sendMessage = async (req, res) => {
                 select: { firstName: true, lastName: true },
             });
             if (sender) {
-                await NotificationService.notifyNewMessage(recipientId, `${sender.firstName} ${sender.lastName}`, roomId).catch((err) => console.error("Failed to send notification:", err));
+                await notification_service_1.NotificationService.notifyNewMessage(recipientId, `${sender.firstName} ${sender.lastName}`, roomId).catch((err) => console.error("Failed to send notification:", err));
             }
         }
         res.status(201).json({
@@ -225,7 +233,8 @@ export const sendMessage = async (req, res) => {
         });
     }
 };
-export const getMessages = async (req, res) => {
+exports.sendMessage = sendMessage;
+const getMessages = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -235,7 +244,7 @@ export const getMessages = async (req, res) => {
         const { roomId } = req.params;
         const limit = req.query.limit ? parseInt(req.query.limit) : 50;
         const skip = req.query.skip ? parseInt(req.query.skip) : 0;
-        const messages = await ChatService.getMessages(roomId, userId, limit, skip);
+        const messages = await chat_service_1.ChatService.getMessages(roomId, userId, limit, skip);
         res.status(200).json({
             success: true,
             count: messages.length,
@@ -252,7 +261,8 @@ export const getMessages = async (req, res) => {
         });
     }
 };
-export const markMessageAsRead = async (req, res) => {
+exports.getMessages = getMessages;
+const markMessageAsRead = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -260,7 +270,7 @@ export const markMessageAsRead = async (req, res) => {
             return;
         }
         const { messageId } = req.params;
-        const message = await ChatService.markMessageAsRead(messageId, userId);
+        const message = await chat_service_1.ChatService.markMessageAsRead(messageId, userId);
         res.status(200).json({
             success: true,
             message: "Message marked as read",
@@ -275,14 +285,15 @@ export const markMessageAsRead = async (req, res) => {
         });
     }
 };
-export const getUnreadCount = async (req, res) => {
+exports.markMessageAsRead = markMessageAsRead;
+const getUnreadCount = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
             res.status(401).json({ success: false, message: "Unauthorized" });
             return;
         }
-        const count = await ChatService.getUnreadCount(userId);
+        const count = await chat_service_1.ChatService.getUnreadCount(userId);
         res.status(200).json({
             success: true,
             data: { count },
@@ -296,3 +307,4 @@ export const getUnreadCount = async (req, res) => {
         });
     }
 };
+exports.getUnreadCount = getUnreadCount;

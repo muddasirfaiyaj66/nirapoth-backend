@@ -1,7 +1,10 @@
-import { PrismaClient } from "@prisma/client";
-import { sendNotificationToUser, sendUrgentNotification, } from "../config/socket";
-const prisma = new PrismaClient();
-export class NotificationController {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.NotificationController = void 0;
+const client_1 = require("@prisma/client");
+const socket_1 = require("../config/socket");
+const prisma = new client_1.PrismaClient();
+class NotificationController {
     /**
      * Get all notifications for the current user
      */
@@ -430,10 +433,10 @@ export class NotificationController {
                 const notification_to_send = notification_data.find((n) => n.userId === userId);
                 if (notification_to_send) {
                     if (priority === "URGENT") {
-                        sendUrgentNotification(userId, notification_to_send);
+                        (0, socket_1.sendUrgentNotification)(userId, notification_to_send);
                     }
                     else {
-                        sendNotificationToUser(userId, notification_to_send);
+                        (0, socket_1.sendNotificationToUser)(userId, notification_to_send);
                     }
                 }
             }
@@ -489,10 +492,10 @@ export class NotificationController {
             // Emit socket event for each user with their specific notification
             created_notifications.forEach((notification) => {
                 if (priority === "URGENT") {
-                    sendUrgentNotification(notification.userId, notification);
+                    (0, socket_1.sendUrgentNotification)(notification.userId, notification);
                 }
                 else {
-                    sendNotificationToUser(notification.userId, notification);
+                    (0, socket_1.sendNotificationToUser)(notification.userId, notification);
                 }
             });
             res.status(201).json({
@@ -555,10 +558,10 @@ export class NotificationController {
             // Emit socket event for each user with their specific notification
             created_notifications.forEach((notification) => {
                 if (priority === "URGENT") {
-                    sendUrgentNotification(notification.userId, notification);
+                    (0, socket_1.sendUrgentNotification)(notification.userId, notification);
                 }
                 else {
-                    sendNotificationToUser(notification.userId, notification);
+                    (0, socket_1.sendNotificationToUser)(notification.userId, notification);
                 }
             });
             res.status(201).json({
@@ -579,3 +582,4 @@ export class NotificationController {
         }
     }
 }
+exports.NotificationController = NotificationController;

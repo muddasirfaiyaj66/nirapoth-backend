@@ -1,9 +1,12 @@
-import { prisma } from "../lib/prisma";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getCitizenAnalytics = exports.getCitizenStats = void 0;
+const prisma_1 = require("../lib/prisma");
 /**
  * Get citizen dashboard statistics
  * @route GET /api/citizen/stats
  */
-export const getCitizenStats = async (req, res) => {
+const getCitizenStats = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -15,21 +18,21 @@ export const getCitizenStats = async (req, res) => {
         }
         // Get vehicles count
         const [totalVehicles, activeVehicles] = await Promise.all([
-            prisma.vehicle.count({
+            prisma_1.prisma.vehicle.count({
                 where: { ownerId: userId },
             }),
-            prisma.vehicle.count({
+            prisma_1.prisma.vehicle.count({
                 where: { ownerId: userId, isActive: true },
             }),
         ]);
         // Get violations count (violations related to user's vehicles)
         const [totalViolations, pendingViolations] = await Promise.all([
-            prisma.violation.count({
+            prisma_1.prisma.violation.count({
                 where: {
                     vehicle: { ownerId: userId },
                 },
             }),
-            prisma.violation.count({
+            prisma_1.prisma.violation.count({
                 where: {
                     vehicle: { ownerId: userId },
                     status: { in: ["PENDING", "CONFIRMED"] },
@@ -37,7 +40,7 @@ export const getCitizenStats = async (req, res) => {
             }),
         ]);
         // Get fines statistics (fines on user's vehicles)
-        const fines = await prisma.fine.aggregate({
+        const fines = await prisma_1.prisma.fine.aggregate({
             where: {
                 violation: {
                     vehicle: { ownerId: userId },
@@ -46,7 +49,7 @@ export const getCitizenStats = async (req, res) => {
             _sum: { amount: true },
             _count: true,
         });
-        const paidFines = await prisma.fine.aggregate({
+        const paidFines = await prisma_1.prisma.fine.aggregate({
             where: {
                 violation: {
                     vehicle: { ownerId: userId },
@@ -57,15 +60,15 @@ export const getCitizenStats = async (req, res) => {
         });
         // Get submitted complaints/reports
         const [submittedComplaints, resolvedComplaints] = await Promise.all([
-            prisma.citizenReport.count({
+            prisma_1.prisma.citizenReport.count({
                 where: { citizenId: userId },
             }),
-            prisma.citizenReport.count({
+            prisma_1.prisma.citizenReport.count({
                 where: { citizenId: userId, status: "APPROVED" },
             }),
         ]);
         // Get reward balance (only positive rewards, not penalties)
-        const rewardTransactions = await prisma.rewardTransaction.findMany({
+        const rewardTransactions = await prisma_1.prisma.rewardTransaction.findMany({
             where: {
                 userId,
                 status: "COMPLETED",
@@ -80,7 +83,7 @@ export const getCitizenStats = async (req, res) => {
             .filter((t) => t.type === "REWARD" || t.type === "BONUS")
             .reduce((sum, t) => sum + Math.abs(t.amount), 0);
         // Get recent violations (last 5 fines on user's vehicles)
-        const recentViolations = await prisma.fine.findMany({
+        const recentViolations = await prisma_1.prisma.fine.findMany({
             where: {
                 violation: {
                     vehicle: { ownerId: userId },
@@ -106,7 +109,7 @@ export const getCitizenStats = async (req, res) => {
             take: 5,
         });
         // Get user vehicles (last 5)
-        const myVehicles = await prisma.vehicle.findMany({
+        const myVehicles = await prisma_1.prisma.vehicle.findMany({
             where: { ownerId: userId },
             select: {
                 id: true,
@@ -163,11 +166,12 @@ export const getCitizenStats = async (req, res) => {
         });
     }
 };
+exports.getCitizenStats = getCitizenStats;
 /**
  * Get comprehensive citizen analytics for dashboard graphs
  * @route GET /api/citizen/analytics
  */
-export const getCitizenAnalytics = async (req, res) => {
+const getCitizenAnalytics = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -178,7 +182,7 @@ export const getCitizenAnalytics = async (req, res) => {
             });
         }
         // Get current balance from reward transactions
-        const rewardTransactions = await prisma.rewardTransaction.findMany({
+        const rewardTransactions = await prisma_1.prisma.rewardTransaction.findMany({
             where: { userId, status: "COMPLETED" },
             select: { amount: true, type: true },
         });
@@ -192,7 +196,7 @@ export const getCitizenAnalytics = async (req, res) => {
         // Get violations overview (last 6 months)
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-        const violationsByMonth = await prisma.$queryRaw `
+        const violationsByMonth = await prisma_1.prisma.$queryRaw `
       SELECT 
         TO_CHAR(v."createdAt", 'Mon YYYY') as month,
         COUNT(*)::bigint as count
@@ -204,7 +208,7 @@ export const getCitizenAnalytics = async (req, res) => {
       ORDER BY DATE_TRUNC('month', v."createdAt") ASC
     `;
         // Get fines analytics (last 6 months)
-        const finesByMonth = await prisma.$queryRaw `
+        const finesByMonth = await prisma_1.prisma.$queryRaw `
       SELECT 
         TO_CHAR(f."createdAt", 'Mon YYYY') as month,
         SUM(f.amount)::int as total,
@@ -219,7 +223,7 @@ export const getCitizenAnalytics = async (req, res) => {
       ORDER BY DATE_TRUNC('month', f."createdAt") ASC
     `;
         // Get rewards over time (last 6 months)
-        const rewardsByMonth = await prisma.$queryRaw `
+        const rewardsByMonth = await prisma_1.prisma.$queryRaw `
       SELECT 
         TO_CHAR(rt."createdAt", 'Mon YYYY') as month,
         SUM(CASE WHEN rt.type IN ('REWARD', 'BONUS') THEN ABS(rt.amount) ELSE 0 END)::int as rewards,
@@ -232,7 +236,7 @@ export const getCitizenAnalytics = async (req, res) => {
       ORDER BY DATE_TRUNC('month', rt."createdAt") ASC
     `;
         // Get violation types breakdown
-        const violationsByType = await prisma.$queryRaw `
+        const violationsByType = await prisma_1.prisma.$queryRaw `
       SELECT 
         r.title as type,
         COUNT(*)::bigint as count
@@ -245,7 +249,7 @@ export const getCitizenAnalytics = async (req, res) => {
       LIMIT 10
     `;
         // Get recent activity (last 10 items)
-        const recentFines = await prisma.fine.findMany({
+        const recentFines = await prisma_1.prisma.fine.findMany({
             where: {
                 violation: { vehicle: { ownerId: userId } },
             },
@@ -260,7 +264,7 @@ export const getCitizenAnalytics = async (req, res) => {
             orderBy: { createdAt: "desc" },
             take: 10,
         });
-        const recentRewards = await prisma.rewardTransaction.findMany({
+        const recentRewards = await prisma_1.prisma.rewardTransaction.findMany({
             where: { userId, status: "COMPLETED" },
             orderBy: { createdAt: "desc" },
             take: 10,
@@ -292,14 +296,14 @@ export const getCitizenAnalytics = async (req, res) => {
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
             .slice(0, 10);
         // Get total reports submitted
-        const totalReports = await prisma.citizenReport.count({
+        const totalReports = await prisma_1.prisma.citizenReport.count({
             where: { citizenId: userId },
         });
-        const approvedReports = await prisma.citizenReport.count({
+        const approvedReports = await prisma_1.prisma.citizenReport.count({
             where: { citizenId: userId, status: "APPROVED" },
         });
         // Get citizen reports by month (last 6 months)
-        const reportsByMonth = await prisma.$queryRaw `
+        const reportsByMonth = await prisma_1.prisma.$queryRaw `
       SELECT 
         TO_CHAR(cr."createdAt", 'Mon YYYY') as month,
         COUNT(*)::bigint as total,
@@ -313,7 +317,7 @@ export const getCitizenAnalytics = async (req, res) => {
       ORDER BY DATE_TRUNC('month', cr."createdAt") ASC
     `;
         // Get citizen reports by violation type
-        const reportsByType = await prisma.$queryRaw `
+        const reportsByType = await prisma_1.prisma.$queryRaw `
       SELECT 
         cr."violationType" as type,
         COUNT(*)::bigint as count
@@ -395,3 +399,4 @@ export const getCitizenAnalytics = async (req, res) => {
         });
     }
 };
+exports.getCitizenAnalytics = getCitizenAnalytics;

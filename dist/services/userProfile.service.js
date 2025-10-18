@@ -1,7 +1,13 @@
-import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcrypt";
-const prisma = new PrismaClient();
-export class UserProfileService {
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.UserProfileService = void 0;
+const client_1 = require("@prisma/client");
+const bcrypt_1 = __importDefault(require("bcrypt"));
+const prisma = new client_1.PrismaClient();
+class UserProfileService {
     /**
      * Get complete user profile
      */
@@ -117,12 +123,12 @@ export class UserProfileService {
             throw new Error("User not found");
         }
         // Verify current password
-        const isValid = await bcrypt.compare(currentPassword, user.password);
+        const isValid = await bcrypt_1.default.compare(currentPassword, user.password);
         if (!isValid) {
             throw new Error("Current password is incorrect");
         }
         // Hash new password
-        const hashedPassword = await bcrypt.hash(newPassword, 12);
+        const hashedPassword = await bcrypt_1.default.hash(newPassword, 12);
         await prisma.user.update({
             where: { id: userId },
             data: { password: hashedPassword },
@@ -328,3 +334,4 @@ export class UserProfileService {
         };
     }
 }
+exports.UserProfileService = UserProfileService;

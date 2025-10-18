@@ -1,25 +1,61 @@
-import { DebtManagementService } from "../services/debtManagement.service";
-import { z } from "zod";
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getAllDebts = exports.waiveDebt = exports.payDebt = exports.getDebtDetails = exports.getTotalDebt = exports.getMyDebts = void 0;
+const debtManagement_service_1 = require("../services/debtManagement.service");
+const zod_1 = require("zod");
 // Validation schemas
-const payDebtSchema = z.object({
-    debtId: z.string().uuid(),
-    amount: z.number().positive("Amount must be positive"),
-    paymentMethod: z.enum(["CARD", "BANK_TRANSFER", "MOBILE_MONEY", "ONLINE"]),
-    paymentReference: z.string().optional(),
+const payDebtSchema = zod_1.z.object({
+    debtId: zod_1.z.string().uuid(),
+    amount: zod_1.z.number().positive("Amount must be positive"),
+    paymentMethod: zod_1.z.enum(["CARD", "BANK_TRANSFER", "MOBILE_MONEY", "ONLINE"]),
+    paymentReference: zod_1.z.string().optional(),
 });
 /**
  * Get user's debt summary with all outstanding debts
  * GET /api/rewards/debts
  */
-export const getMyDebts = async (req, res) => {
+const getMyDebts = async (req, res) => {
     try {
         if (!req.user?.id) {
             return res.status(401).json({ error: "Unauthorized" });
         }
         // Check and create debt if balance is negative
-        await DebtManagementService.checkAndCreateDebtForNegativeBalance(req.user.id);
-        const debts = await DebtManagementService.getUserDebts(req.user.id);
-        const totalDebt = await DebtManagementService.getTotalDebtAmount(req.user.id);
+        await debtManagement_service_1.DebtManagementService.checkAndCreateDebtForNegativeBalance(req.user.id);
+        const debts = await debtManagement_service_1.DebtManagementService.getUserDebts(req.user.id);
+        const totalDebt = await debtManagement_service_1.DebtManagementService.getTotalDebtAmount(req.user.id);
         // Calculate total late fees
         const totalLateFees = debts.reduce((sum, debt) => sum + debt.lateFees, 0);
         // Get oldest debt's due date
@@ -47,16 +83,17 @@ export const getMyDebts = async (req, res) => {
         });
     }
 };
+exports.getMyDebts = getMyDebts;
 /**
  * Get total debt amount for current user
  * GET /api/rewards/debts/total
  */
-export const getTotalDebt = async (req, res) => {
+const getTotalDebt = async (req, res) => {
     try {
         if (!req.user?.id) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const totalDebt = await DebtManagementService.getTotalDebtAmount(req.user.id);
+        const totalDebt = await debtManagement_service_1.DebtManagementService.getTotalDebtAmount(req.user.id);
         return res.status(200).json({
             success: true,
             data: {
@@ -73,17 +110,18 @@ export const getTotalDebt = async (req, res) => {
         });
     }
 };
+exports.getTotalDebt = getTotalDebt;
 /**
  * Get details of a specific debt
  * GET /api/rewards/debts/:debtId
  */
-export const getDebtDetails = async (req, res) => {
+const getDebtDetails = async (req, res) => {
     try {
         if (!req.user?.id) {
             return res.status(401).json({ error: "Unauthorized" });
         }
         const { debtId } = req.params;
-        const debt = await DebtManagementService.getDebtById(debtId);
+        const debt = await debtManagement_service_1.DebtManagementService.getDebtById(debtId);
         if (!debt) {
             return res.status(404).json({
                 success: false,
@@ -110,11 +148,12 @@ export const getDebtDetails = async (req, res) => {
         });
     }
 };
+exports.getDebtDetails = getDebtDetails;
 /**
  * Make a payment towards a debt
  * POST /api/rewards/pay-debt
  */
-export const payDebt = async (req, res) => {
+const payDebt = async (req, res) => {
     try {
         if (!req.user?.id) {
             return res.status(401).json({ error: "Unauthorized" });
@@ -130,7 +169,7 @@ export const payDebt = async (req, res) => {
         }
         const { debtId, amount } = validation.data;
         // Verify debt ownership
-        const debt = await DebtManagementService.getDebtById(debtId);
+        const debt = await debtManagement_service_1.DebtManagementService.getDebtById(debtId);
         if (!debt) {
             return res.status(404).json({
                 success: false,
@@ -159,7 +198,7 @@ export const payDebt = async (req, res) => {
             });
         }
         // Import SSLCommerz service
-        const { SSLCommerzService } = await import("../services/sslcommerz.service");
+        const { SSLCommerzService } = await Promise.resolve().then(() => __importStar(require("../services/sslcommerz.service")));
         const sslCommerz = new SSLCommerzService();
         // Generate unique transaction ID
         const transactionId = `DEBT_${debtId}_${Date.now()}`;
@@ -217,11 +256,12 @@ export const payDebt = async (req, res) => {
         });
     }
 };
+exports.payDebt = payDebt;
 /**
  * Admin: Waive a user's debt
  * POST /api/rewards/debts/:debtId/waive
  */
-export const waiveDebt = async (req, res) => {
+const waiveDebt = async (req, res) => {
     try {
         if (!req.user?.id || req.user?.role !== "ADMIN") {
             return res.status(403).json({
@@ -231,14 +271,14 @@ export const waiveDebt = async (req, res) => {
         }
         const { debtId } = req.params;
         const { notes } = req.body;
-        const debt = await DebtManagementService.getDebtById(debtId);
+        const debt = await debtManagement_service_1.DebtManagementService.getDebtById(debtId);
         if (!debt) {
             return res.status(404).json({
                 success: false,
                 error: "Debt not found",
             });
         }
-        const waivedDebt = await DebtManagementService.waiveDebt(debtId, req.user.id, notes);
+        const waivedDebt = await debtManagement_service_1.DebtManagementService.waiveDebt(debtId, req.user.id, notes);
         return res.status(200).json({
             success: true,
             message: "Debt waived successfully",
@@ -253,11 +293,12 @@ export const waiveDebt = async (req, res) => {
         });
     }
 };
+exports.waiveDebt = waiveDebt;
 /**
  * Admin: Get all debts in the system
  * GET /api/rewards/debts/all
  */
-export const getAllDebts = async (req, res) => {
+const getAllDebts = async (req, res) => {
     try {
         if (!req.user?.id || req.user?.role !== "ADMIN") {
             return res.status(403).json({
@@ -282,3 +323,4 @@ export const getAllDebts = async (req, res) => {
         });
     }
 };
+exports.getAllDebts = getAllDebts;

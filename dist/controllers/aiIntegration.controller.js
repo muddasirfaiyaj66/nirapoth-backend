@@ -1,40 +1,43 @@
-import { AIIntegrationService } from "../services/aiIntegration.service";
-import { logger } from "../utils/logger";
-import { z } from "zod";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AIIntegrationController = void 0;
+const aiIntegration_service_1 = require("../services/aiIntegration.service");
+const logger_1 = require("../utils/logger");
+const zod_1 = require("zod");
 // Validation schemas
-const accidentAlertSchema = z.object({
-    type: z.enum(["accident", "fire", "traffic_violation"]),
-    severity: z.enum(["low", "medium", "high", "critical"]),
-    location: z.object({
-        latitude: z.number(),
-        longitude: z.number(),
-        address: z.string().optional(),
+const accidentAlertSchema = zod_1.z.object({
+    type: zod_1.z.enum(["accident", "fire", "traffic_violation"]),
+    severity: zod_1.z.enum(["low", "medium", "high", "critical"]),
+    location: zod_1.z.object({
+        latitude: zod_1.z.number(),
+        longitude: zod_1.z.number(),
+        address: zod_1.z.string().optional(),
     }),
-    description: z.string(),
-    confidence: z.number().min(0).max(1),
-    imageUrl: z.string().url().optional(),
-    videoUrl: z.string().url().optional(),
-    vehiclesInvolved: z.array(z.string()).optional(),
+    description: zod_1.z.string(),
+    confidence: zod_1.z.number().min(0).max(1),
+    imageUrl: zod_1.z.string().url().optional(),
+    videoUrl: zod_1.z.string().url().optional(),
+    vehiclesInvolved: zod_1.z.array(zod_1.z.string()).optional(),
 });
-const reportAccidentSchema = z.object({
-    location: z.array(z.number()).length(2),
-    confidence: z.number().min(0).max(1),
-    vehicles_involved: z.array(z.string()),
-    imageUrl: z.string().url().optional(),
-    videoUrl: z.string().url().optional(),
+const reportAccidentSchema = zod_1.z.object({
+    location: zod_1.z.array(zod_1.z.number()).length(2),
+    confidence: zod_1.z.number().min(0).max(1),
+    vehicles_involved: zod_1.z.array(zod_1.z.string()),
+    imageUrl: zod_1.z.string().url().optional(),
+    videoUrl: zod_1.z.string().url().optional(),
 });
-const mediaDetectionSchema = z.object({
-    mediaUrl: z.string().url(),
-    mediaType: z.enum(["image", "video"]),
-    location: z
+const mediaDetectionSchema = zod_1.z.object({
+    mediaUrl: zod_1.z.string().url(),
+    mediaType: zod_1.z.enum(["image", "video"]),
+    location: zod_1.z
         .object({
-        latitude: z.number(),
-        longitude: z.number(),
-        address: z.string().optional(),
+        latitude: zod_1.z.number(),
+        longitude: zod_1.z.number(),
+        address: zod_1.z.string().optional(),
     })
         .optional(),
 });
-export class AIIntegrationController {
+class AIIntegrationController {
     /**
      * Send accident alert to AI service
      */
@@ -53,7 +56,7 @@ export class AIIntegrationController {
                 ...validationResult.data,
                 timestamp: new Date().toISOString(),
             };
-            const result = await AIIntegrationService.processAccidentAlert(alertData);
+            const result = await aiIntegration_service_1.AIIntegrationService.processAccidentAlert(alertData);
             if (result.success) {
                 res.status(200).json({
                     success: true,
@@ -69,7 +72,7 @@ export class AIIntegrationController {
             }
         }
         catch (error) {
-            logger.error(`Error in sendAccidentAlert: ${error.message}`);
+            logger_1.logger.error(`Error in sendAccidentAlert: ${error.message}`);
             res.status(500).json({
                 success: false,
                 message: "Internal server error",
@@ -81,7 +84,7 @@ export class AIIntegrationController {
      */
     static async getAccidentData(req, res) {
         try {
-            const result = await AIIntegrationService.getAccidentData();
+            const result = await aiIntegration_service_1.AIIntegrationService.getAccidentData();
             if (result.success) {
                 res.status(200).json({
                     success: true,
@@ -97,7 +100,7 @@ export class AIIntegrationController {
             }
         }
         catch (error) {
-            logger.error(`Error in getAccidentData: ${error.message}`);
+            logger_1.logger.error(`Error in getAccidentData: ${error.message}`);
             res.status(500).json({
                 success: false,
                 message: "Internal server error",
@@ -117,7 +120,7 @@ export class AIIntegrationController {
                 });
                 return;
             }
-            const result = await AIIntegrationService.getAccidentById(accidentId);
+            const result = await aiIntegration_service_1.AIIntegrationService.getAccidentById(accidentId);
             if (result.success) {
                 res.status(200).json({
                     success: true,
@@ -133,7 +136,7 @@ export class AIIntegrationController {
             }
         }
         catch (error) {
-            logger.error(`Error in getAccidentById: ${error.message}`);
+            logger_1.logger.error(`Error in getAccidentById: ${error.message}`);
             res.status(500).json({
                 success: false,
                 message: "Internal server error",
@@ -155,7 +158,7 @@ export class AIIntegrationController {
                 return;
             }
             const { mediaUrl, mediaType, location } = validationResult.data;
-            const result = await AIIntegrationService.processMediaForDetection(mediaUrl, mediaType, location);
+            const result = await aiIntegration_service_1.AIIntegrationService.processMediaForDetection(mediaUrl, mediaType, location);
             if (result.success) {
                 res.status(200).json({
                     success: true,
@@ -176,7 +179,7 @@ export class AIIntegrationController {
             }
         }
         catch (error) {
-            logger.error(`Error in processMediaForDetection: ${error.message}`);
+            logger_1.logger.error(`Error in processMediaForDetection: ${error.message}`);
             res.status(500).json({
                 success: false,
                 message: "Internal server error",
@@ -197,7 +200,7 @@ export class AIIntegrationController {
                 });
                 return;
             }
-            const result = await AIIntegrationService.reportAccident(validationResult.data);
+            const result = await aiIntegration_service_1.AIIntegrationService.reportAccident(validationResult.data);
             if (result.success) {
                 res.status(200).json({
                     success: true,
@@ -213,7 +216,7 @@ export class AIIntegrationController {
             }
         }
         catch (error) {
-            logger.error(`Error in reportAccident: ${error.message}`);
+            logger_1.logger.error(`Error in reportAccident: ${error.message}`);
             res.status(500).json({
                 success: false,
                 message: "Internal server error",
@@ -225,7 +228,7 @@ export class AIIntegrationController {
      */
     static async syncAccidentData(req, res) {
         try {
-            const result = await AIIntegrationService.syncAccidentData();
+            const result = await aiIntegration_service_1.AIIntegrationService.syncAccidentData();
             if (result.success) {
                 res.status(200).json({
                     success: true,
@@ -243,7 +246,7 @@ export class AIIntegrationController {
             }
         }
         catch (error) {
-            logger.error(`Error in syncAccidentData: ${error.message}`);
+            logger_1.logger.error(`Error in syncAccidentData: ${error.message}`);
             res.status(500).json({
                 success: false,
                 message: "Internal server error",
@@ -255,7 +258,7 @@ export class AIIntegrationController {
      */
     static async checkHealth(req, res) {
         try {
-            const result = await AIIntegrationService.checkHealth();
+            const result = await aiIntegration_service_1.AIIntegrationService.checkHealth();
             if (result.success) {
                 res.status(200).json({
                     success: true,
@@ -278,7 +281,7 @@ export class AIIntegrationController {
             }
         }
         catch (error) {
-            logger.error(`Error in checkHealth: ${error.message}`);
+            logger_1.logger.error(`Error in checkHealth: ${error.message}`);
             res.status(500).json({
                 success: false,
                 message: "Internal server error",
@@ -291,8 +294,8 @@ export class AIIntegrationController {
     static async getAIStats(req, res) {
         try {
             const [accidentData, healthCheck] = await Promise.all([
-                AIIntegrationService.getAccidentData(),
-                AIIntegrationService.checkHealth(),
+                aiIntegration_service_1.AIIntegrationService.getAccidentData(),
+                aiIntegration_service_1.AIIntegrationService.checkHealth(),
             ]);
             const stats = {
                 aiServiceStatus: healthCheck.success ? "healthy" : "unhealthy",
@@ -309,7 +312,7 @@ export class AIIntegrationController {
             });
         }
         catch (error) {
-            logger.error(`Error in getAIStats: ${error.message}`);
+            logger_1.logger.error(`Error in getAIStats: ${error.message}`);
             res.status(500).json({
                 success: false,
                 message: "Internal server error",
@@ -317,3 +320,4 @@ export class AIIntegrationController {
         }
     }
 }
+exports.AIIntegrationController = AIIntegrationController;

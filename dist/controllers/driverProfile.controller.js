@@ -1,19 +1,22 @@
-import { DriverProfileService } from "../services/driverProfile.service";
-import { NotificationService } from "../services/notification.service";
-import { DriverStatus } from "@prisma/client";
-export const createDriverProfile = async (req, res) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.deleteDriverProfile = exports.updateDriverStatus = exports.searchDrivers = exports.getMyDriverProfile = exports.getDriverProfileByUser = exports.getDriverProfile = exports.updateDriverProfile = exports.createDriverProfile = void 0;
+const driverProfile_service_1 = require("../services/driverProfile.service");
+const notification_service_1 = require("../services/notification.service");
+const client_1 = require("@prisma/client");
+const createDriverProfile = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
             res.status(401).json({ success: false, message: "Unauthorized" });
             return;
         }
-        const profile = await DriverProfileService.createDriverProfile({
+        const profile = await driverProfile_service_1.DriverProfileService.createDriverProfile({
             userId,
             ...req.body,
         });
         // Send notification
-        await NotificationService.notifyDriverProfileCreated(userId).catch((err) => console.error("Failed to send notification:", err));
+        await notification_service_1.NotificationService.notifyDriverProfileCreated(userId).catch((err) => console.error("Failed to send notification:", err));
         res.status(201).json({
             success: true,
             message: "Driver profile created successfully",
@@ -28,7 +31,8 @@ export const createDriverProfile = async (req, res) => {
         });
     }
 };
-export const updateDriverProfile = async (req, res) => {
+exports.createDriverProfile = createDriverProfile;
+const updateDriverProfile = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -36,7 +40,7 @@ export const updateDriverProfile = async (req, res) => {
             return;
         }
         const { id } = req.params;
-        const profile = await DriverProfileService.updateDriverProfile(id, userId, req.body);
+        const profile = await driverProfile_service_1.DriverProfileService.updateDriverProfile(id, userId, req.body);
         res.status(200).json({
             success: true,
             message: "Driver profile updated successfully",
@@ -51,10 +55,11 @@ export const updateDriverProfile = async (req, res) => {
         });
     }
 };
-export const getDriverProfile = async (req, res) => {
+exports.updateDriverProfile = updateDriverProfile;
+const getDriverProfile = async (req, res) => {
     try {
         const { id } = req.params;
-        const profile = await DriverProfileService.getDriverProfileById(id);
+        const profile = await driverProfile_service_1.DriverProfileService.getDriverProfileById(id);
         res.status(200).json({
             success: true,
             data: profile,
@@ -68,10 +73,11 @@ export const getDriverProfile = async (req, res) => {
         });
     }
 };
-export const getDriverProfileByUser = async (req, res) => {
+exports.getDriverProfile = getDriverProfile;
+const getDriverProfileByUser = async (req, res) => {
     try {
         const { userId } = req.params;
-        const profile = await DriverProfileService.getDriverProfileByUserId(userId);
+        const profile = await driverProfile_service_1.DriverProfileService.getDriverProfileByUserId(userId);
         if (!profile) {
             res.status(404).json({
                 success: false,
@@ -92,14 +98,15 @@ export const getDriverProfileByUser = async (req, res) => {
         });
     }
 };
-export const getMyDriverProfile = async (req, res) => {
+exports.getDriverProfileByUser = getDriverProfileByUser;
+const getMyDriverProfile = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
             res.status(401).json({ success: false, message: "Unauthorized" });
             return;
         }
-        const profile = await DriverProfileService.getDriverProfileByUserId(userId);
+        const profile = await driverProfile_service_1.DriverProfileService.getDriverProfileByUserId(userId);
         if (!profile) {
             res.status(404).json({
                 success: false,
@@ -120,7 +127,8 @@ export const getMyDriverProfile = async (req, res) => {
         });
     }
 };
-export const searchDrivers = async (req, res) => {
+exports.getMyDriverProfile = getMyDriverProfile;
+const searchDrivers = async (req, res) => {
     try {
         const filters = {
             location: req.query.location,
@@ -138,7 +146,7 @@ export const searchDrivers = async (req, res) => {
                 ? parseInt(req.query.minGems)
                 : undefined,
         };
-        const drivers = await DriverProfileService.searchDrivers(filters);
+        const drivers = await driverProfile_service_1.DriverProfileService.searchDrivers(filters);
         res.status(200).json({
             success: true,
             count: drivers.length,
@@ -153,7 +161,8 @@ export const searchDrivers = async (req, res) => {
         });
     }
 };
-export const updateDriverStatus = async (req, res) => {
+exports.searchDrivers = searchDrivers;
+const updateDriverStatus = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -162,14 +171,14 @@ export const updateDriverStatus = async (req, res) => {
         }
         const { id } = req.params;
         const { status } = req.body;
-        if (!Object.values(DriverStatus).includes(status)) {
+        if (!Object.values(client_1.DriverStatus).includes(status)) {
             res.status(400).json({
                 success: false,
                 message: "Invalid driver status",
             });
             return;
         }
-        const profile = await DriverProfileService.updateDriverStatus(id, userId, status);
+        const profile = await driverProfile_service_1.DriverProfileService.updateDriverStatus(id, userId, status);
         res.status(200).json({
             success: true,
             message: "Driver status updated successfully",
@@ -184,7 +193,8 @@ export const updateDriverStatus = async (req, res) => {
         });
     }
 };
-export const deleteDriverProfile = async (req, res) => {
+exports.updateDriverStatus = updateDriverStatus;
+const deleteDriverProfile = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -192,7 +202,7 @@ export const deleteDriverProfile = async (req, res) => {
             return;
         }
         const { id } = req.params;
-        await DriverProfileService.deleteDriverProfile(id, userId);
+        await driverProfile_service_1.DriverProfileService.deleteDriverProfile(id, userId);
         res.status(200).json({
             success: true,
             message: "Driver profile deleted successfully",
@@ -206,3 +216,4 @@ export const deleteDriverProfile = async (req, res) => {
         });
     }
 };
+exports.deleteDriverProfile = deleteDriverProfile;

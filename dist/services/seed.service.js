@@ -1,18 +1,24 @@
-import { PrismaClient } from "@prisma/client";
-import { hashPassword } from "../utils/password";
-import { config } from "../config/env";
-import { populateAllBDGeoData } from "./bdGeo.service";
-const prisma = new PrismaClient();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SeedService = void 0;
+const client_1 = require("@prisma/client");
+const password_1 = require("../utils/password");
+const env_1 = require("../config/env");
+const bdGeo_service_1 = require("./bdGeo.service");
+const prisma = new client_1.PrismaClient();
+// Track if seeding has been attempted in this instance
+let seedingAttempted = false;
+let seedingPromise = null;
 /**
  * Seed service to initialize default data
  */
-export class SeedService {
+class SeedService {
     /**
      * Creates the super admin user if it doesn't exist
      */
     static async createSuperAdmin() {
         try {
-            const { email, password, firstName, lastName, phone } = config.superAdmin;
+            const { email, password, firstName, lastName, phone } = env_1.config.superAdmin;
             // Check if super admin already exists
             const existingSuperAdmin = await prisma.user.findUnique({
                 where: { email },
@@ -22,7 +28,7 @@ export class SeedService {
                 return;
             }
             // Hash the password
-            const hashedPassword = await hashPassword(password);
+            const hashedPassword = await (0, password_1.hashPassword)(password);
             // Create super admin user
             const superAdmin = await prisma.user.create({
                 data: {
@@ -208,7 +214,7 @@ export class SeedService {
                 return;
             }
             console.log("🗺️  Populating Bangladesh geographical data...");
-            await populateAllBDGeoData();
+            await (0, bdGeo_service_1.populateAllBDGeoData)();
             console.log("✅ Bangladesh geographical data populated successfully");
         }
         catch (error) {
@@ -218,21 +224,76 @@ export class SeedService {
     }
     /**
      * Checks database connection and runs initialization
+     * This version is optimized for serverless environments (Vercel)
+     * It ensures seeding only runs once per function instance
      */
     static async runStartupSeeding() {
+        // If seeding is already in progress, wait for it
+        if (seedingPromise) {
+            return seedingPromise;
+        }
+        // If seeding was already attempted in this instance, skip
+        if (seedingAttempted) {
+            return;
+        }
+        // Create a promise to track seeding
+        seedingPromise = (async () => {
+            try {
+                seedingAttempted = true;
+                console.log("🔄 Checking database connection...");
+                // Test database connection
+                await prisma.$connect();
+                console.log("✅ Database connection established");
+                // Run initialization without disconnecting
+                console.log("🌱 Starting database initialization...");
+                try {
+                    // Create super admin
+                    await this.createSuperAdmin();
+                    // Seed police organizational hierarchy
+                    await this.seedPoliceHierarchy();
+                    // Seed default rules
+                    await this.seedDefaultRules();
+                    // Populate Bangladesh geographical data (divisions, districts, upazilas)
+                    await this.populateBDGeoData();
+                    console.log("✅ Database initialization completed successfully!");
+                }
+                catch (error) {
+                    console.error("❌ Database initialization failed:", error);
+                    // Don't throw - allow server to continue
+                }
+                // NOTE: We do NOT disconnect Prisma here because the server needs to continue using it
+            }
+            catch (error) {
+                console.error("❌ Startup seeding failed:", error);
+                console.error("🚨 Server will continue but some features may not work properly");
+                // Don't crash the server, just log the error
+                // The server should still start even if seeding fails
+            }
+            finally {
+                seedingPromise = null;
+            }
+        })();
+        return seedingPromise;
+    }
+    /**
+     * Lightweight check to ensure critical data exists
+     * Used for serverless cold starts to minimize latency
+     */
+    static async ensureCriticalDataExists() {
         try {
-            console.log("🔄 Checking database connection...");
-            // Test database connection
-            await prisma.$connect();
-            console.log("✅ Database connection established");
-            // Run initialization
-            await this.initializeDatabase();
+            // Only check for superadmin existence - fastest check
+            const superAdminCount = await prisma.user.count({
+                where: { role: "SUPER_ADMIN" },
+            });
+            if (superAdminCount === 0) {
+                console.log("⚠️  No superadmin found, running full seeding...");
+                await this.runStartupSeeding();
+            }
         }
         catch (error) {
-            console.error("❌ Startup seeding failed:", error);
-            console.error("🚨 Server will continue but some features may not work properly");
-            // Don't crash the server, just log the error
-            // The server should still start even if seeding fails
+            console.error("❌ Critical data check failed:", error);
+            // Don't crash, let the request proceed
         }
     }
 }
+exports.SeedService = SeedService;

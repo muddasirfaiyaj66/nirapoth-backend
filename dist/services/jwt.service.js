@@ -1,9 +1,15 @@
-import jwt from "jsonwebtoken";
-import { config } from "../config/env";
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.JWTService = void 0;
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const env_1 = require("../config/env");
 /**
  * JWT Service for handling token generation and verification
  */
-export class JWTService {
+class JWTService {
     /**
      * Generate access token
      * @param payload - JWT payload containing user information
@@ -12,11 +18,11 @@ export class JWTService {
     static generateAccessToken(payload) {
         try {
             const options = {
-                expiresIn: config.jwt.expiresIn,
+                expiresIn: env_1.config.jwt.expiresIn,
                 issuer: "nirapoth-backend",
                 audience: "nirapoth-client",
             };
-            return jwt.sign(payload, config.jwt.secret, options);
+            return jsonwebtoken_1.default.sign(payload, env_1.config.jwt.secret, options);
         }
         catch (error) {
             throw new Error("Failed to generate access token");
@@ -30,11 +36,11 @@ export class JWTService {
     static generateRefreshToken(payload) {
         try {
             const options = {
-                expiresIn: config.jwt.refreshExpiresIn,
+                expiresIn: env_1.config.jwt.refreshExpiresIn,
                 issuer: "nirapoth-backend",
                 audience: "nirapoth-client",
             };
-            return jwt.sign(payload, config.jwt.refreshSecret, options);
+            return jsonwebtoken_1.default.sign(payload, env_1.config.jwt.refreshSecret, options);
         }
         catch (error) {
             throw new Error("Failed to generate refresh token");
@@ -47,16 +53,16 @@ export class JWTService {
      */
     static verifyAccessToken(token) {
         try {
-            return jwt.verify(token, config.jwt.secret, {
+            return jsonwebtoken_1.default.verify(token, env_1.config.jwt.secret, {
                 issuer: "nirapoth-backend",
                 audience: "nirapoth-client",
             });
         }
         catch (error) {
-            if (error instanceof jwt.TokenExpiredError) {
+            if (error instanceof jsonwebtoken_1.default.TokenExpiredError) {
                 throw new Error("Access token has expired");
             }
-            else if (error instanceof jwt.JsonWebTokenError) {
+            else if (error instanceof jsonwebtoken_1.default.JsonWebTokenError) {
                 throw new Error("Invalid access token");
             }
             else {
@@ -71,16 +77,16 @@ export class JWTService {
      */
     static verifyRefreshToken(token) {
         try {
-            return jwt.verify(token, config.jwt.refreshSecret, {
+            return jsonwebtoken_1.default.verify(token, env_1.config.jwt.refreshSecret, {
                 issuer: "nirapoth-backend",
                 audience: "nirapoth-client",
             });
         }
         catch (error) {
-            if (error instanceof jwt.TokenExpiredError) {
+            if (error instanceof jsonwebtoken_1.default.TokenExpiredError) {
                 throw new Error("Refresh token has expired");
             }
-            else if (error instanceof jwt.JsonWebTokenError) {
+            else if (error instanceof jsonwebtoken_1.default.JsonWebTokenError) {
                 throw new Error("Invalid refresh token");
             }
             else {
@@ -115,7 +121,7 @@ export class JWTService {
      */
     static decodeToken(token) {
         try {
-            return jwt.decode(token);
+            return jsonwebtoken_1.default.decode(token);
         }
         catch (error) {
             return null;
@@ -140,3 +146,4 @@ export class JWTService {
         }
     }
 }
+exports.JWTService = JWTService;

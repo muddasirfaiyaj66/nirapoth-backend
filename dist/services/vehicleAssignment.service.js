@@ -1,10 +1,16 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.VehicleAssignmentService = void 0;
 // @ts-nocheck
 // DEPRECATED: This service uses the old VehicleAssignment schema
 // Use driverAssignment.service.ts for the new driver marketplace system
-import { PrismaClient } from "@prisma/client";
-import DrivingLicenseService from "./drivingLicense.service";
-const prisma = new PrismaClient();
-export class VehicleAssignmentService {
+const client_1 = require("@prisma/client");
+const drivingLicense_service_1 = __importDefault(require("./drivingLicense.service"));
+const prisma = new client_1.PrismaClient();
+class VehicleAssignmentService {
     /**
      * Assign a citizen as driver to a vehicle with license validation
      */
@@ -17,7 +23,7 @@ export class VehicleAssignmentService {
             throw new Error("Vehicle not found");
         }
         // Validate driving license
-        const licenseValidation = await DrivingLicenseService.validateForVehicleAssignment(data.citizenId, vehicle.type);
+        const licenseValidation = await drivingLicense_service_1.default.validateForVehicleAssignment(data.citizenId, vehicle.type);
         if (!licenseValidation.isValid) {
             throw new Error(`Citizen does not have a valid driving license for ${vehicle.type}. Required categories: ${licenseValidation.requiredCategories.join(", ")}`);
         }
@@ -173,7 +179,7 @@ export class VehicleAssignmentService {
             reasons.push("Vehicle is not active");
         }
         // Check driving license
-        const licenseValidation = await DrivingLicenseService.validateForVehicleAssignment(citizenId, vehicle.type);
+        const licenseValidation = await drivingLicense_service_1.default.validateForVehicleAssignment(citizenId, vehicle.type);
         if (!licenseValidation.isValid) {
             reasons.push(`No valid driving license for ${vehicle.type}`);
         }
@@ -235,3 +241,4 @@ export class VehicleAssignmentService {
         });
     }
 }
+exports.VehicleAssignmentService = VehicleAssignmentService;

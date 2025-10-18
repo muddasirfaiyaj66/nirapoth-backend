@@ -1,7 +1,10 @@
-import { PrismaClient } from "@prisma/client";
-import { logger } from "../utils/logger";
-const prisma = new PrismaClient();
-export class AIIntegrationService {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AIIntegrationService = void 0;
+const client_1 = require("@prisma/client");
+const logger_1 = require("../utils/logger");
+const prisma = new client_1.PrismaClient();
+class AIIntegrationService {
     /**
      * Process accident alert received from AI service
      */
@@ -28,7 +31,7 @@ export class AIIntegrationService {
                     },
                 },
             });
-            logger.info(`Accident alert processed successfully: ${alertData.type}`);
+            logger_1.logger.info(`Accident alert processed successfully: ${alertData.type}`);
             return {
                 success: true,
                 message: "Alert processed successfully",
@@ -36,7 +39,7 @@ export class AIIntegrationService {
             };
         }
         catch (error) {
-            logger.error(`Error processing accident alert: ${error.message}`);
+            logger_1.logger.error(`Error processing accident alert: ${error.message}`);
             return {
                 success: false,
                 message: error.message || "Failed to process alert",
@@ -65,7 +68,7 @@ export class AIIntegrationService {
             };
         }
         catch (error) {
-            logger.error(`Error getting accident data: ${error.message}`);
+            logger_1.logger.error(`Error getting accident data: ${error.message}`);
             return {
                 success: false,
                 message: error.message || "Failed to get accident data",
@@ -100,7 +103,7 @@ export class AIIntegrationService {
             }
         }
         catch (error) {
-            logger.error(`Error getting accident by ID: ${error.message}`);
+            logger_1.logger.error(`Error getting accident by ID: ${error.message}`);
             return {
                 success: false,
                 message: error.message || "Failed to get accident data",
@@ -114,7 +117,7 @@ export class AIIntegrationService {
         try {
             // This method is now handled by the AI service
             // The AI service will send POST requests to the backend when incidents are detected
-            logger.info(`Media detection request received: ${mediaType} - ${mediaUrl}`);
+            logger_1.logger.info(`Media detection request received: ${mediaType} - ${mediaUrl}`);
             return {
                 success: true,
                 detections: [],
@@ -122,7 +125,7 @@ export class AIIntegrationService {
             };
         }
         catch (error) {
-            logger.error(`Error processing media for detection: ${error.message}`);
+            logger_1.logger.error(`Error processing media for detection: ${error.message}`);
             return {
                 success: false,
                 message: error.message || "Failed to process media for detection",
@@ -160,7 +163,7 @@ export class AIIntegrationService {
             };
         }
         catch (error) {
-            logger.error(`Error reporting accident: ${error.message}`);
+            logger_1.logger.error(`Error reporting accident: ${error.message}`);
             return {
                 success: false,
                 message: error.message || "Failed to report accident",
@@ -181,14 +184,14 @@ export class AIIntegrationService {
                     },
                 },
             });
-            logger.info(`Found ${incidents.length} AI-detected incidents`);
+            logger_1.logger.info(`Found ${incidents.length} AI-detected incidents`);
             return {
                 success: true,
                 synced: incidents.length,
             };
         }
         catch (error) {
-            logger.error(`Error syncing accident data: ${error.message}`);
+            logger_1.logger.error(`Error syncing accident data: ${error.message}`);
             return {
                 success: false,
                 synced: 0,
@@ -209,7 +212,7 @@ export class AIIntegrationService {
             };
         }
         catch (error) {
-            logger.error(`AI service health check failed: ${error.message}`);
+            logger_1.logger.error(`AI service health check failed: ${error.message}`);
             return {
                 success: false,
                 message: `AI integration service is not available: ${error.message}`,
@@ -240,3 +243,4 @@ export class AIIntegrationService {
         return severityMap[alertSeverity] || "MEDIUM";
     }
 }
+exports.AIIntegrationService = AIIntegrationService;

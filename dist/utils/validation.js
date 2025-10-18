@@ -1,43 +1,46 @@
-import { z } from "zod";
-import { UserRole } from "@prisma/client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.passwordResetTokenSchema = exports.emailVerificationSchema = exports.updateProfileSchema = exports.changePasswordSchema = exports.resetPasswordSchema = exports.forgotPasswordSchema = exports.loginSchema = exports.registerSchema = void 0;
+const zod_1 = require("zod");
+const client_1 = require("@prisma/client");
 // User registration validation schema
-export const registerSchema = z
+exports.registerSchema = zod_1.z
     .object({
-    firstName: z
+    firstName: zod_1.z
         .string()
         .min(2, "First name must be at least 2 characters long")
         .max(50, "First name must not exceed 50 characters")
         .regex(/^[a-zA-Z\s]+$/, "First name can only contain letters and spaces"),
-    lastName: z
+    lastName: zod_1.z
         .string()
         .min(2, "Last name must be at least 2 characters long")
         .max(50, "Last name must not exceed 50 characters")
         .regex(/^[a-zA-Z\s]+$/, "Last name can only contain letters and spaces"),
-    email: z
+    email: zod_1.z
         .string()
         .email("Please provide a valid email address")
         .max(100, "Email must not exceed 100 characters"),
-    password: z
+    password: zod_1.z
         .string()
         .min(8, "Password must be at least 8 characters long")
         .max(128, "Password must not exceed 128 characters")
         .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"),
-    phone: z
+    phone: zod_1.z
         .string()
         .regex(/^[0-9+\-\s()]+$/, "Please provide a valid phone number")
         .min(10, "Phone number must be at least 10 characters")
         .max(20, "Phone number must not exceed 20 characters"),
-    nidNo: z
+    nidNo: zod_1.z
         .string()
         .regex(/^\d{10}$|^\d{17}$/, "NID must be either 10 or 17 digits")
         .optional()
-        .or(z.literal("")), // Allow empty string from frontend
-    birthCertificateNo: z
+        .or(zod_1.z.literal("")), // Allow empty string from frontend
+    birthCertificateNo: zod_1.z
         .string()
         .regex(/^\d{17}$/, "Birth Certificate Number must be 17 digits")
         .optional()
-        .or(z.literal("")), // Allow empty string from frontend
-    role: z.nativeEnum(UserRole).optional().default(UserRole.CITIZEN),
+        .or(zod_1.z.literal("")), // Allow empty string from frontend
+    role: zod_1.z.nativeEnum(client_1.UserRole).optional().default(client_1.UserRole.CITIZEN),
 })
     .strip() // Strip unknown fields like confirmPassword from frontend
     .refine((data) => {
@@ -50,123 +53,123 @@ export const registerSchema = z
     path: ["nidNo"],
 });
 // User login validation schema
-export const loginSchema = z.object({
-    email: z
+exports.loginSchema = zod_1.z.object({
+    email: zod_1.z
         .string()
         .email("Please provide a valid email address")
         .max(100, "Email must not exceed 100 characters"),
-    password: z
+    password: zod_1.z
         .string()
         .min(1, "Password is required")
         .max(128, "Password must not exceed 128 characters"),
 });
 // Password reset request validation schema
-export const forgotPasswordSchema = z.object({
-    email: z
+exports.forgotPasswordSchema = zod_1.z.object({
+    email: zod_1.z
         .string()
         .email("Please provide a valid email address")
         .max(100, "Email must not exceed 100 characters"),
 });
 // Password reset validation schema
-export const resetPasswordSchema = z.object({
-    token: z.string().min(1, "Reset token is required"),
-    password: z
+exports.resetPasswordSchema = zod_1.z.object({
+    token: zod_1.z.string().min(1, "Reset token is required"),
+    password: zod_1.z
         .string()
         .min(8, "Password must be at least 8 characters long")
         .max(128, "Password must not exceed 128 characters")
         .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"),
 });
 // Change password validation schema
-export const changePasswordSchema = z.object({
-    currentPassword: z.string().min(1, "Current password is required"),
-    newPassword: z
+exports.changePasswordSchema = zod_1.z.object({
+    currentPassword: zod_1.z.string().min(1, "Current password is required"),
+    newPassword: zod_1.z
         .string()
         .min(8, "New password must be at least 8 characters long")
         .max(128, "New password must not exceed 128 characters")
         .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, "New password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"),
 });
 // Update user profile validation schema
-export const updateProfileSchema = z.object({
-    firstName: z
+exports.updateProfileSchema = zod_1.z.object({
+    firstName: zod_1.z
         .string()
         .min(2, "First name must be at least 2 characters long")
         .max(50, "First name must not exceed 50 characters")
         .regex(/^[a-zA-Z\s]+$/, "First name can only contain letters and spaces")
         .optional(),
-    lastName: z
+    lastName: zod_1.z
         .string()
         .min(2, "Last name must be at least 2 characters long")
         .max(50, "Last name must not exceed 50 characters")
         .regex(/^[a-zA-Z\s]+$/, "Last name can only contain letters and spaces")
         .optional(),
-    phone: z
+    phone: zod_1.z
         .string()
         .regex(/^[0-9+\-\s()]+$/, "Please provide a valid phone number")
         .min(10, "Phone number must be at least 10 characters")
         .max(20, "Phone number must not exceed 20 characters")
         .optional(),
-    dateOfBirth: z
+    dateOfBirth: zod_1.z
         .string()
         .optional()
         .transform((str) => (str ? new Date(str) : undefined)),
-    gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
-    bloodGroup: z.string().optional(),
+    gender: zod_1.z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
+    bloodGroup: zod_1.z.string().optional(),
     // Contact Information
-    alternatePhone: z
+    alternatePhone: zod_1.z
         .string()
         .regex(/^[0-9+\-\s()]+$/, "Please provide a valid phone number")
         .min(10, "Phone number must be at least 10 characters")
         .max(20, "Phone number must not exceed 20 characters")
-        .or(z.literal(""))
+        .or(zod_1.z.literal(""))
         .optional(),
-    emergencyContact: z.string().optional(),
-    emergencyContactPhone: z
+    emergencyContact: zod_1.z.string().optional(),
+    emergencyContactPhone: zod_1.z
         .string()
         .regex(/^[0-9+\-\s()]+$/, "Please provide a valid phone number")
         .min(10, "Phone number must be at least 10 characters")
         .max(20, "Phone number must not exceed 20 characters")
-        .or(z.literal(""))
+        .or(zod_1.z.literal(""))
         .optional(),
     // Present Address
-    presentAddress: z.string().optional(),
-    presentCity: z.string().optional(),
-    presentDistrict: z.string().optional(),
-    presentDivision: z.string().optional(),
-    presentUpazila: z.string().optional(),
-    presentPostalCode: z.string().optional(),
+    presentAddress: zod_1.z.string().optional(),
+    presentCity: zod_1.z.string().optional(),
+    presentDistrict: zod_1.z.string().optional(),
+    presentDivision: zod_1.z.string().optional(),
+    presentUpazila: zod_1.z.string().optional(),
+    presentPostalCode: zod_1.z.string().optional(),
     // Permanent Address
-    permanentAddress: z.string().optional(),
-    permanentCity: z.string().optional(),
-    permanentDistrict: z.string().optional(),
-    permanentDivision: z.string().optional(),
-    permanentUpazila: z.string().optional(),
-    permanentPostalCode: z.string().optional(),
+    permanentAddress: zod_1.z.string().optional(),
+    permanentCity: zod_1.z.string().optional(),
+    permanentDistrict: zod_1.z.string().optional(),
+    permanentDivision: zod_1.z.string().optional(),
+    permanentUpazila: zod_1.z.string().optional(),
+    permanentPostalCode: zod_1.z.string().optional(),
     // Professional Information (for police/fire service)
-    designation: z.string().optional(),
-    badgeNo: z.string().optional(),
-    joiningDate: z
+    designation: zod_1.z.string().optional(),
+    badgeNo: zod_1.z.string().optional(),
+    joiningDate: zod_1.z
         .string()
         .optional()
         .transform((str) => (str ? new Date(str) : undefined)),
-    rank: z.string().optional(),
-    specialization: z.string().optional(),
+    rank: zod_1.z.string().optional(),
+    specialization: zod_1.z.string().optional(),
     // Additional Info
-    bio: z.string().optional(),
-    nidNo: z
+    bio: zod_1.z.string().optional(),
+    nidNo: zod_1.z
         .string()
         .regex(/^\d{10}$|^\d{17}$/, "NID must be either 10 or 17 digits")
         .optional(),
-    birthCertificateNo: z
+    birthCertificateNo: zod_1.z
         .string()
         .regex(/^\d{17}$/, "Birth Certificate Number must be 17 digits")
         .optional(),
-    profileImage: z.string().url("Profile image must be a valid URL").optional(),
+    profileImage: zod_1.z.string().url("Profile image must be a valid URL").optional(),
 });
 // Email verification validation schema
-export const emailVerificationSchema = z.object({
-    token: z.string().min(1, "Verification token is required"),
+exports.emailVerificationSchema = zod_1.z.object({
+    token: zod_1.z.string().min(1, "Verification token is required"),
 });
 // Password reset token validation schema
-export const passwordResetTokenSchema = z.object({
-    token: z.string().min(1, "Reset token is required"),
+exports.passwordResetTokenSchema = zod_1.z.object({
+    token: zod_1.z.string().min(1, "Reset token is required"),
 });

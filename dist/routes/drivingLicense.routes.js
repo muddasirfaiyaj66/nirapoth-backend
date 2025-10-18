@@ -1,19 +1,24 @@
-import { Router } from "express";
-import DrivingLicenseController from "../controllers/drivingLicense.controller";
-import { authenticate } from "../middlewares/auth.middleware";
-const router = Router();
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const drivingLicense_controller_1 = __importDefault(require("../controllers/drivingLicense.controller"));
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const router = (0, express_1.Router)();
 // All routes require authentication
-router.use(authenticate);
+router.use(auth_middleware_1.authenticate);
 // Citizen routes
-router.post("/", DrivingLicenseController.createLicense);
-router.get("/my-license", DrivingLicenseController.getMyLicense);
-router.patch("/:id", DrivingLicenseController.updateLicense);
-router.post("/:id/pay-blacklist-penalty", DrivingLicenseController.payBlacklistPenalty);
+router.post("/", drivingLicense_controller_1.default.createLicense);
+router.get("/my-license", drivingLicense_controller_1.default.getMyLicense);
+router.patch("/:id", drivingLicense_controller_1.default.updateLicense);
+router.post("/:id/pay-blacklist-penalty", drivingLicense_controller_1.default.payBlacklistPenalty);
 // Admin/Police routes
-router.get("/blacklisted", DrivingLicenseController.getBlacklistedLicenses);
-router.get("/by-license-no/:licenseNo", DrivingLicenseController.getLicenseByLicenseNo);
-router.get("/:id", DrivingLicenseController.getLicenseById);
-router.get("/:id/validity", DrivingLicenseController.checkValidity);
+router.get("/blacklisted", drivingLicense_controller_1.default.getBlacklistedLicenses);
+router.get("/by-license-no/:licenseNo", drivingLicense_controller_1.default.getLicenseByLicenseNo);
+router.get("/:id", drivingLicense_controller_1.default.getLicenseById);
+router.get("/:id/validity", drivingLicense_controller_1.default.checkValidity);
 // Police only routes
-router.post("/:id/deduct-gems", DrivingLicenseController.deductGems);
-export default router;
+router.post("/:id/deduct-gems", drivingLicense_controller_1.default.deductGems);
+exports.default = router;

@@ -1,9 +1,12 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.StatusUtils = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
 /**
  * Utility functions for managing soft deletion and status fields
  */
-export class StatusUtils {
+class StatusUtils {
     /**
      * Marks a user as deleted (soft delete)
      */
@@ -105,3 +108,4 @@ export class StatusUtils {
         return true;
     }
 }
+exports.StatusUtils = StatusUtils;

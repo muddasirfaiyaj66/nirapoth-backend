@@ -1,6 +1,9 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
-export class FireTeamService {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.FireTeamService = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
+class FireTeamService {
     static async getAllTeamMembers() {
         const members = await prisma.fireTeamMember.findMany({
             include: { user: true, fireService: true },
@@ -33,3 +36,4 @@ export class FireTeamService {
         return { total, available, onDuty: 0, offDuty: 0 };
     }
 }
+exports.FireTeamService = FireTeamService;

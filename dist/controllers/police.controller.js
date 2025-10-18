@@ -1,9 +1,12 @@
-import { prisma } from "../lib/prisma";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getPoliceAnalytics = exports.getPoliceStats = void 0;
+const prisma_1 = require("../lib/prisma");
 /**
  * Get police dashboard statistics
  * @route GET /api/police/stats
  */
-export const getPoliceStats = async (req, res) => {
+const getPoliceStats = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -14,38 +17,38 @@ export const getPoliceStats = async (req, res) => {
             });
         }
         // Get violations assigned to this police officer or in their station
-        const assignedViolations = await prisma.violation.count({
+        const assignedViolations = await prisma_1.prisma.violation.count({
             where: {
             // Add filter for police jurisdiction if needed
             },
         });
-        const pendingViolations = await prisma.violation.count({
+        const pendingViolations = await prisma_1.prisma.violation.count({
             where: {
                 status: "PENDING",
             },
         });
-        const resolvedViolations = await prisma.violation.count({
+        const resolvedViolations = await prisma_1.prisma.violation.count({
             where: {
                 status: "RESOLVED",
             },
         });
         // Get fines issued
-        const totalFinesIssued = await prisma.fine.count();
-        const unpaidFines = await prisma.fine.count({
+        const totalFinesIssued = await prisma_1.prisma.fine.count();
+        const unpaidFines = await prisma_1.prisma.fine.count({
             where: { status: "UNPAID" },
         });
-        const paidFines = await prisma.fine.count({
+        const paidFines = await prisma_1.prisma.fine.count({
             where: { status: "PAID" },
         });
         // Get citizen reports for review
-        const pendingReports = await prisma.citizenReport.count({
+        const pendingReports = await prisma_1.prisma.citizenReport.count({
             where: { status: "PENDING" },
         });
-        const approvedReports = await prisma.citizenReport.count({
+        const approvedReports = await prisma_1.prisma.citizenReport.count({
             where: { status: "APPROVED" },
         });
         // Get recent violations
-        const recentViolations = await prisma.violation.findMany({
+        const recentViolations = await prisma_1.prisma.violation.findMany({
             include: {
                 vehicle: {
                     select: {
@@ -98,11 +101,12 @@ export const getPoliceStats = async (req, res) => {
         });
     }
 };
+exports.getPoliceStats = getPoliceStats;
 /**
  * Get police analytics for dashboard graphs
  * @route GET /api/police/analytics
  */
-export const getPoliceAnalytics = async (req, res) => {
+const getPoliceAnalytics = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -115,7 +119,7 @@ export const getPoliceAnalytics = async (req, res) => {
         // Violations by month (last 6 months)
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-        const violationsByMonth = await prisma.$queryRaw `
+        const violationsByMonth = await prisma_1.prisma.$queryRaw `
       SELECT 
         TO_CHAR(v."createdAt", 'Mon YYYY') as month,
         COUNT(*)::bigint as count
@@ -125,7 +129,7 @@ export const getPoliceAnalytics = async (req, res) => {
       ORDER BY DATE_TRUNC('month', v."createdAt") ASC
     `;
         // Fines by status
-        const finesByStatus = await prisma.fine.groupBy({
+        const finesByStatus = await prisma_1.prisma.fine.groupBy({
             by: ["status"],
             _count: {
                 id: true,
@@ -135,7 +139,7 @@ export const getPoliceAnalytics = async (req, res) => {
             },
         });
         // Violation types breakdown
-        const violationsByType = await prisma.$queryRaw `
+        const violationsByType = await prisma_1.prisma.$queryRaw `
       SELECT 
         r.title as type,
         COUNT(*)::bigint as count
@@ -147,7 +151,7 @@ export const getPoliceAnalytics = async (req, res) => {
       LIMIT 10
     `;
         // Citizen reports by status
-        const reportsByStatus = await prisma.citizenReport.groupBy({
+        const reportsByStatus = await prisma_1.prisma.citizenReport.groupBy({
             by: ["status"],
             _count: {
                 id: true,
@@ -193,3 +197,4 @@ export const getPoliceAnalytics = async (req, res) => {
         });
     }
 };
+exports.getPoliceAnalytics = getPoliceAnalytics;

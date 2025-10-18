@@ -1,6 +1,9 @@
-import { PrismaClient, VehicleAssignmentStatus, DriverStatus, } from "@prisma/client";
-const prisma = new PrismaClient();
-export class DriverAssignmentService {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DriverAssignmentService = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
+class DriverAssignmentService {
     /**
      * Create a new vehicle assignment (vehicle owner assigns driver)
      */
@@ -33,7 +36,7 @@ export class DriverAssignmentService {
         if (!driverProfile.user.isActive || driverProfile.user.isBlocked) {
             throw new Error("Driver is not available");
         }
-        if (driverProfile.status === DriverStatus.ASSIGNED) {
+        if (driverProfile.status === client_1.DriverStatus.ASSIGNED) {
             throw new Error("Driver is already assigned to another vehicle");
         }
         // Check for existing active assignment for this vehicle
@@ -41,7 +44,7 @@ export class DriverAssignmentService {
             where: {
                 vehicleId: data.vehicleId,
                 status: {
-                    in: [VehicleAssignmentStatus.PENDING, VehicleAssignmentStatus.ACTIVE],
+                    in: [client_1.VehicleAssignmentStatus.PENDING, client_1.VehicleAssignmentStatus.ACTIVE],
                 },
             },
         });
@@ -57,7 +60,7 @@ export class DriverAssignmentService {
                 salary: data.salary,
                 startDate: data.startDate,
                 notes: data.notes,
-                status: VehicleAssignmentStatus.PENDING,
+                status: client_1.VehicleAssignmentStatus.PENDING,
             },
             include: {
                 vehicle: {
@@ -104,7 +107,7 @@ export class DriverAssignmentService {
         if (assignment.driverId !== userId) {
             throw new Error("Only the assigned driver can accept this assignment");
         }
-        if (assignment.status !== VehicleAssignmentStatus.PENDING) {
+        if (assignment.status !== client_1.VehicleAssignmentStatus.PENDING) {
             throw new Error("Assignment is not pending");
         }
         // Update assignment and driver status in a transaction
@@ -112,7 +115,7 @@ export class DriverAssignmentService {
             prisma.vehicleAssignment.update({
                 where: { id: assignmentId },
                 data: {
-                    status: VehicleAssignmentStatus.ACTIVE,
+                    status: client_1.VehicleAssignmentStatus.ACTIVE,
                     startDate: assignment.startDate || new Date(),
                 },
                 include: {
@@ -146,7 +149,7 @@ export class DriverAssignmentService {
             }),
             prisma.driverProfile.update({
                 where: { userId: userId },
-                data: { status: DriverStatus.ASSIGNED },
+                data: { status: client_1.DriverStatus.ASSIGNED },
             }),
         ]);
         return updatedAssignment;
@@ -165,13 +168,13 @@ export class DriverAssignmentService {
         if (assignment.driverId !== userId) {
             throw new Error("Only the assigned driver can reject this assignment");
         }
-        if (assignment.status !== VehicleAssignmentStatus.PENDING) {
+        if (assignment.status !== client_1.VehicleAssignmentStatus.PENDING) {
             throw new Error("Assignment is not pending");
         }
         return await prisma.vehicleAssignment.update({
             where: { id: assignmentId },
             data: {
-                status: VehicleAssignmentStatus.REJECTED,
+                status: client_1.VehicleAssignmentStatus.REJECTED,
             },
         });
     }
@@ -189,7 +192,7 @@ export class DriverAssignmentService {
         if (assignment.driverId !== userId) {
             throw new Error("Only the assigned driver can resign");
         }
-        if (assignment.status !== VehicleAssignmentStatus.ACTIVE) {
+        if (assignment.status !== client_1.VehicleAssignmentStatus.ACTIVE) {
             throw new Error("Assignment is not active");
         }
         // Update assignment and driver status in a transaction
@@ -197,7 +200,7 @@ export class DriverAssignmentService {
             prisma.vehicleAssignment.update({
                 where: { id: assignmentId },
                 data: {
-                    status: VehicleAssignmentStatus.RESIGNED,
+                    status: client_1.VehicleAssignmentStatus.RESIGNED,
                     endDate: new Date(),
                 },
                 include: {
@@ -228,7 +231,7 @@ export class DriverAssignmentService {
             }),
             prisma.driverProfile.update({
                 where: { userId: userId },
-                data: { status: DriverStatus.AVAILABLE },
+                data: { status: client_1.DriverStatus.AVAILABLE },
             }),
         ]);
         return updatedAssignment;
@@ -247,7 +250,7 @@ export class DriverAssignmentService {
         if (assignment.ownerId !== userId) {
             throw new Error("Only the vehicle owner can terminate this assignment");
         }
-        if (assignment.status !== VehicleAssignmentStatus.ACTIVE) {
+        if (assignment.status !== client_1.VehicleAssignmentStatus.ACTIVE) {
             throw new Error("Assignment is not active");
         }
         // Update assignment and driver status in a transaction
@@ -255,7 +258,7 @@ export class DriverAssignmentService {
             prisma.vehicleAssignment.update({
                 where: { id: assignmentId },
                 data: {
-                    status: VehicleAssignmentStatus.TERMINATED,
+                    status: client_1.VehicleAssignmentStatus.TERMINATED,
                     endDate: new Date(),
                 },
                 include: {
@@ -285,7 +288,7 @@ export class DriverAssignmentService {
             }),
             prisma.driverProfile.update({
                 where: { userId: assignment.driverId },
-                data: { status: DriverStatus.AVAILABLE },
+                data: { status: client_1.DriverStatus.AVAILABLE },
             }),
         ]);
         return updatedAssignment;
@@ -459,3 +462,4 @@ export class DriverAssignmentService {
         });
     }
 }
+exports.DriverAssignmentService = DriverAssignmentService;

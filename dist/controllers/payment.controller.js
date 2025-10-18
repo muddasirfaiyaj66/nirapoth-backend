@@ -1,6 +1,42 @@
-import { z } from "zod";
-import { sslCommerzService } from "../services/sslcommerz.service";
-import { prisma } from "../lib/prisma";
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PaymentController = void 0;
+const zod_1 = require("zod");
+const sslcommerz_service_1 = require("../services/sslcommerz.service");
+const prisma_1 = require("../lib/prisma");
 // Simple in-memory cache for user payments (60 seconds TTL)
 const paymentCache = new Map();
 const CACHE_TTL = 60 * 1000; // 60 seconds
@@ -19,28 +55,28 @@ function clearCachedPayments(userId) {
     paymentCache.delete(userId);
 }
 // Validation schemas
-const createPaymentSchema = z.object({
-    fineId: z.string().uuid("Invalid fine ID"),
-    amount: z.number().min(1, "Amount must be positive"),
-    paymentMethod: z.enum(["CARD", "BANK_TRANSFER", "MOBILE_MONEY", "ONLINE"]),
-    transactionId: z.string().optional(),
+const createPaymentSchema = zod_1.z.object({
+    fineId: zod_1.z.string().uuid("Invalid fine ID"),
+    amount: zod_1.z.number().min(1, "Amount must be positive"),
+    paymentMethod: zod_1.z.enum(["CARD", "BANK_TRANSFER", "MOBILE_MONEY", "ONLINE"]),
+    transactionId: zod_1.z.string().optional(),
 });
-const initOnlinePaymentSchema = z
+const initOnlinePaymentSchema = zod_1.z
     .object({
-    fineId: z.string().uuid("Invalid fine ID").optional(),
-    fineIds: z.array(z.string().uuid()).optional(),
-    debtId: z.string().uuid("Invalid debt ID").optional(),
-    amount: z.number().min(1, "Amount must be positive"),
+    fineId: zod_1.z.string().uuid("Invalid fine ID").optional(),
+    fineIds: zod_1.z.array(zod_1.z.string().uuid()).optional(),
+    debtId: zod_1.z.string().uuid("Invalid debt ID").optional(),
+    amount: zod_1.z.number().min(1, "Amount must be positive"),
 })
     .refine((data) => data.fineId || (data.fineIds && data.fineIds.length > 0) || data.debtId, {
     message: "Either fineId, fineIds, or debtId must be provided",
 });
-const updatePaymentStatusSchema = z.object({
-    paymentId: z.string().uuid("Invalid payment ID"),
-    status: z.enum(["PENDING", "COMPLETED", "FAILED", "REFUNDED"]),
-    notes: z.string().optional(),
+const updatePaymentStatusSchema = zod_1.z.object({
+    paymentId: zod_1.z.string().uuid("Invalid payment ID"),
+    status: zod_1.z.enum(["PENDING", "COMPLETED", "FAILED", "REFUNDED"]),
+    notes: zod_1.z.string().optional(),
 });
-export class PaymentController {
+class PaymentController {
     /**
      * Get all payments with pagination and filtering
      */
@@ -88,7 +124,7 @@ export class PaymentController {
             }
             // Get payments and total count
             const [payments, total] = await Promise.all([
-                prisma.payment.findMany({
+                prisma_1.prisma.payment.findMany({
                     where,
                     skip,
                     take: limit,
@@ -120,7 +156,7 @@ export class PaymentController {
                         },
                     },
                 }),
-                prisma.payment.count({ where }),
+                prisma_1.prisma.payment.count({ where }),
             ]);
             res.status(200).json({
                 success: true,
@@ -149,7 +185,7 @@ export class PaymentController {
     static async getPaymentById(req, res) {
         try {
             const { paymentId } = req.params;
-            const payment = await prisma.payment.findUnique({
+            const payment = await prisma_1.prisma.payment.findUnique({
                 where: { id: paymentId },
                 include: {
                     user: {
@@ -217,7 +253,7 @@ export class PaymentController {
                 return;
             }
             // Check if fine exists and belongs to user
-            const fine = await prisma.fine.findUnique({
+            const fine = await prisma_1.prisma.fine.findUnique({
                 where: { id: validatedData.fineId },
                 include: {
                     violation: {
@@ -265,7 +301,7 @@ export class PaymentController {
                 return;
             }
             // Create payment
-            const payment = await prisma.payment.create({
+            const payment = await prisma_1.prisma.payment.create({
                 data: {
                     userId,
                     fineId: validatedData.fineId,
@@ -305,7 +341,7 @@ export class PaymentController {
             // Clear cache for this user
             clearCachedPayments(userId);
             // Update fine status
-            await prisma.fine.update({
+            await prisma_1.prisma.fine.update({
                 where: { id: validatedData.fineId },
                 data: {
                     status: "PAID",
@@ -321,7 +357,7 @@ export class PaymentController {
         }
         catch (error) {
             console.error("Error creating payment:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -345,7 +381,7 @@ export class PaymentController {
         try {
             const validatedData = updatePaymentStatusSchema.parse(req.body);
             // Check if payment exists
-            const payment = await prisma.payment.findUnique({
+            const payment = await prisma_1.prisma.payment.findUnique({
                 where: { id: validatedData.paymentId },
             });
             if (!payment) {
@@ -357,7 +393,7 @@ export class PaymentController {
                 return;
             }
             // Update payment
-            const updatedPayment = await prisma.payment.update({
+            const updatedPayment = await prisma_1.prisma.payment.update({
                 where: { id: validatedData.paymentId },
                 data: {
                     paymentStatus: validatedData.status,
@@ -393,7 +429,7 @@ export class PaymentController {
             clearCachedPayments(updatedPayment.userId);
             // If payment is completed, update fine status
             if (validatedData.status === "COMPLETED") {
-                await prisma.fine.update({
+                await prisma_1.prisma.fine.update({
                     where: { id: payment.fineId },
                     data: {
                         status: "PAID",
@@ -410,7 +446,7 @@ export class PaymentController {
         }
         catch (error) {
             console.error("Error updating payment status:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -454,7 +490,7 @@ export class PaymentController {
             }
             console.log(`🔍 Fetching payments from DB for user: ${userId}`);
             const startTime = Date.now();
-            const payments = await prisma.payment.findMany({
+            const payments = await prisma_1.prisma.payment.findMany({
                 where: { userId },
                 orderBy: { createdAt: "desc" }, // Changed from paidAt to createdAt for better performance
                 take: 100, // Limit to 100 most recent payments
@@ -515,20 +551,20 @@ export class PaymentController {
     static async getPaymentStats(req, res) {
         try {
             const [totalPayments, completedPayments, pendingPayments, failedPayments, refundedPayments,] = await Promise.all([
-                prisma.payment.count(),
-                prisma.payment.count({ where: { paymentStatus: "COMPLETED" } }),
-                prisma.payment.count({ where: { paymentStatus: "PENDING" } }),
-                prisma.payment.count({ where: { paymentStatus: "FAILED" } }),
-                prisma.payment.count({ where: { paymentStatus: "REFUNDED" } }),
+                prisma_1.prisma.payment.count(),
+                prisma_1.prisma.payment.count({ where: { paymentStatus: "COMPLETED" } }),
+                prisma_1.prisma.payment.count({ where: { paymentStatus: "PENDING" } }),
+                prisma_1.prisma.payment.count({ where: { paymentStatus: "FAILED" } }),
+                prisma_1.prisma.payment.count({ where: { paymentStatus: "REFUNDED" } }),
             ]);
             // Calculate total revenue
-            const revenueResult = await prisma.payment.aggregate({
+            const revenueResult = await prisma_1.prisma.payment.aggregate({
                 _sum: { amount: true },
                 where: { paymentStatus: "COMPLETED" },
             });
             const totalRevenue = revenueResult._sum.amount || 0;
             // Get payment method distribution
-            const paymentMethodStats = await prisma.payment.groupBy({
+            const paymentMethodStats = await prisma_1.prisma.payment.groupBy({
                 by: ["paymentMethod"],
                 _count: { id: true },
                 _sum: { amount: true },
@@ -572,7 +608,7 @@ export class PaymentController {
                 return;
             }
             // Get user's vehicles
-            const userVehicles = await prisma.vehicle.findMany({
+            const userVehicles = await prisma_1.prisma.vehicle.findMany({
                 where: {
                     OR: [{ ownerId: userId }, { driverId: userId }],
                 },
@@ -580,7 +616,7 @@ export class PaymentController {
             });
             const vehicleIds = userVehicles.map((v) => v.id);
             // Get unpaid fines for user's vehicles
-            const unpaidFines = await prisma.fine.findMany({
+            const unpaidFines = await prisma_1.prisma.fine.findMany({
                 where: {
                     status: "UNPAID",
                     violation: {
@@ -638,15 +674,15 @@ export class PaymentController {
             let result;
             // Handle debt payment
             if (validatedData.debtId) {
-                result = await sslCommerzService.createDebtPaymentSession(validatedData.debtId, userId, validatedData.amount, baseURL);
+                result = await sslcommerz_service_1.sslCommerzService.createDebtPaymentSession(validatedData.debtId, userId, validatedData.amount, baseURL);
             }
             // Handle single fine payment
             else if (validatedData.fineId) {
-                result = await sslCommerzService.createFinePaymentSession(validatedData.fineId, userId, validatedData.amount, baseURL);
+                result = await sslcommerz_service_1.sslCommerzService.createFinePaymentSession(validatedData.fineId, userId, validatedData.amount, baseURL);
             }
             // Handle multiple fines payment
             else if (validatedData.fineIds) {
-                result = await sslCommerzService.createMultipleFinesPaymentSession(validatedData.fineIds, userId, baseURL);
+                result = await sslcommerz_service_1.sslCommerzService.createMultipleFinesPaymentSession(validatedData.fineIds, userId, baseURL);
             }
             if (result?.success) {
                 res.status(200).json({
@@ -670,7 +706,7 @@ export class PaymentController {
         }
         catch (error) {
             console.error("Error initializing online payment:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -692,7 +728,7 @@ export class PaymentController {
      */
     static async handleSSLSuccess(req, res) {
         try {
-            const result = await sslCommerzService.handleSuccessCallback(req.body);
+            const result = await sslcommerz_service_1.sslCommerzService.handleSuccessCallback(req.body);
             if (result.success) {
                 // Redirect to frontend success page
                 const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
@@ -725,7 +761,7 @@ export class PaymentController {
      */
     static async handleSSLFail(req, res) {
         try {
-            await sslCommerzService.handleFailCallback(req.body);
+            await sslcommerz_service_1.sslCommerzService.handleFailCallback(req.body);
             const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
             const url = new URL(`/payment/failed`, frontendURL);
             url.searchParams.set("message", "Payment failed");
@@ -744,7 +780,7 @@ export class PaymentController {
      */
     static async handleSSLCancel(req, res) {
         try {
-            await sslCommerzService.handleCancelCallback(req.body);
+            await sslcommerz_service_1.sslCommerzService.handleCancelCallback(req.body);
             const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
             const url = new URL(`/payment/cancelled`, frontendURL);
             res.redirect(url.toString());
@@ -761,7 +797,7 @@ export class PaymentController {
      */
     static async handleSSLIPN(req, res) {
         try {
-            const result = await sslCommerzService.handleSuccessCallback(req.body);
+            const result = await sslcommerz_service_1.sslCommerzService.handleSuccessCallback(req.body);
             if (result.success) {
                 res.status(200).json({
                     success: true,
@@ -789,7 +825,7 @@ export class PaymentController {
     static async queryTransaction(req, res) {
         try {
             const { transactionId } = req.params;
-            const result = await sslCommerzService.queryTransaction(transactionId);
+            const result = await sslcommerz_service_1.sslCommerzService.queryTransaction(transactionId);
             res.status(200).json({
                 success: true,
                 data: result.data,
@@ -822,7 +858,7 @@ export class PaymentController {
                 return;
             }
             // Find payment for this user by merchant transaction id
-            const payment = await prisma.payment.findFirst({
+            const payment = await prisma_1.prisma.payment.findFirst({
                 where: {
                     transactionId,
                     userId,
@@ -869,7 +905,7 @@ export class PaymentController {
             const { paymentId } = req.params;
             const { refundAmount, refundRemarks } = req.body;
             // Find payment
-            const payment = await prisma.payment.findUnique({
+            const payment = await prisma_1.prisma.payment.findUnique({
                 where: { id: paymentId },
             });
             if (!payment) {
@@ -896,10 +932,10 @@ export class PaymentController {
                 });
                 return;
             }
-            const result = await sslCommerzService.initiateRefund(payment.transactionId, refundAmount || payment.amount, refundRemarks || "Refund requested");
+            const result = await sslcommerz_service_1.sslCommerzService.initiateRefund(payment.transactionId, refundAmount || payment.amount, refundRemarks || "Refund requested");
             if (result.success) {
                 // Update payment status
-                await prisma.payment.update({
+                await prisma_1.prisma.payment.update({
                     where: { id: paymentId },
                     data: {
                         paymentStatus: "REFUNDED",
@@ -951,7 +987,7 @@ export class PaymentController {
                 return;
             }
             // Import debt management service
-            const { DebtManagementService } = await import("../services/debtManagement.service");
+            const { DebtManagementService } = await Promise.resolve().then(() => __importStar(require("../services/debtManagement.service")));
             // Get the debt
             const debt = await DebtManagementService.getDebtById(debtId);
             if (!debt) {
@@ -992,7 +1028,7 @@ export class PaymentController {
             });
             // Create a DEBT_PAYMENT transaction to record the payment
             // This is separate from rewards - it's a payment that reduces debt
-            await prisma.rewardTransaction.create({
+            await prisma_1.prisma.rewardTransaction.create({
                 data: {
                     userId: debt.userId,
                     amount: safePaymentAmount, // Positive value (industry standard)
@@ -1004,7 +1040,7 @@ export class PaymentController {
             });
             // Create a balancing credit so rewards-offset cancels penalties
             // This ensures currentBalance = rewards - penalties reaches zero after full payment
-            await prisma.rewardTransaction.create({
+            await prisma_1.prisma.rewardTransaction.create({
                 data: {
                     userId: debt.userId,
                     amount: safePaymentAmount, // credit amount
@@ -1028,7 +1064,7 @@ export class PaymentController {
             }
             // Send debt payment confirmation email (non-blocking)
             try {
-                const { EmailService } = await import("../services/email.service");
+                const { EmailService } = await Promise.resolve().then(() => __importStar(require("../services/email.service")));
                 const emailService = new EmailService();
                 const remaining = Math.max(0, (updatedDebt.currentAmount || 0) - (updatedDebt.paidAmount || 0));
                 await emailService.sendDebtPaymentConfirmation({
@@ -1062,3 +1098,4 @@ export class PaymentController {
         }
     }
 }
+exports.PaymentController = PaymentController;

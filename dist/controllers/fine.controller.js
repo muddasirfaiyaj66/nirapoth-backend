@@ -1,33 +1,36 @@
-import { PrismaClient } from "@prisma/client";
-import { z } from "zod";
-const prisma = new PrismaClient();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.FineController = void 0;
+const client_1 = require("@prisma/client");
+const zod_1 = require("zod");
+const prisma = new client_1.PrismaClient();
 // Validation schemas
-const createFineSchema = z.object({
-    violationId: z.string().uuid("Invalid violation ID"),
-    amount: z.number().min(0, "Amount must be positive"),
-    dueDate: z
+const createFineSchema = zod_1.z.object({
+    violationId: zod_1.z.string().uuid("Invalid violation ID"),
+    amount: zod_1.z.number().min(0, "Amount must be positive"),
+    dueDate: zod_1.z
         .string()
         .transform((str) => new Date(str))
         .optional(),
 });
-const updateFineSchema = z.object({
-    amount: z.number().min(0, "Amount must be positive").optional(),
-    status: z.enum(["UNPAID", "PAID", "CANCELLED", "DISPUTED"]).optional(),
-    dueDate: z
+const updateFineSchema = zod_1.z.object({
+    amount: zod_1.z.number().min(0, "Amount must be positive").optional(),
+    status: zod_1.z.enum(["UNPAID", "PAID", "CANCELLED", "DISPUTED"]).optional(),
+    dueDate: zod_1.z
         .string()
         .transform((str) => new Date(str))
         .optional(),
 });
-const fineSearchSchema = z.object({
-    page: z.string().transform(Number).optional(),
-    limit: z.string().transform(Number).optional(),
-    search: z.string().optional(),
-    status: z.string().optional(),
-    vehiclePlate: z.string().optional(),
-    dateFrom: z.string().optional(),
-    dateTo: z.string().optional(),
+const fineSearchSchema = zod_1.z.object({
+    page: zod_1.z.string().transform(Number).optional(),
+    limit: zod_1.z.string().transform(Number).optional(),
+    search: zod_1.z.string().optional(),
+    status: zod_1.z.string().optional(),
+    vehiclePlate: zod_1.z.string().optional(),
+    dateFrom: zod_1.z.string().optional(),
+    dateTo: zod_1.z.string().optional(),
 });
-export class FineController {
+class FineController {
     /**
      * Get all fines with pagination and filtering
      */
@@ -167,7 +170,7 @@ export class FineController {
         }
         catch (error) {
             console.error("Error fetching fines:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -323,7 +326,7 @@ export class FineController {
         }
         catch (error) {
             console.error("Error creating fine:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -392,7 +395,7 @@ export class FineController {
         }
         catch (error) {
             console.error("Error updating fine:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -639,3 +642,4 @@ export class FineController {
         }
     }
 }
+exports.FineController = FineController;

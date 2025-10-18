@@ -1,13 +1,19 @@
-import { PrismaClient } from "@prisma/client";
-import crypto from "crypto";
-const prisma = new PrismaClient();
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.OfficialChatService = void 0;
+const client_1 = require("@prisma/client");
+const crypto_1 = __importDefault(require("crypto"));
+const prisma = new client_1.PrismaClient();
 // Encryption key from environment (use the same as regular chat)
 const ENCRYPTION_KEY = process.env.CHAT_ENCRYPTION_KEY || "your-32-character-secret-key!!";
 const ALGORITHM = "aes-256-cbc";
 const IV_LENGTH = 16;
 function encryptMessage(text) {
-    const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY.padEnd(32, "0").slice(0, 32)), iv);
+    const iv = crypto_1.default.randomBytes(IV_LENGTH);
+    const cipher = crypto_1.default.createCipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY.padEnd(32, "0").slice(0, 32)), iv);
     let encrypted = cipher.update(text, "utf8", "hex");
     encrypted += cipher.final("hex");
     return iv.toString("hex") + ":" + encrypted;
@@ -29,7 +35,7 @@ function decryptMessage(text) {
             return text;
         }
         const encryptedText = Buffer.from(parts.join(":"), "hex");
-        const decipher = crypto.createDecipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY.padEnd(32, "0").slice(0, 32)), iv);
+        const decipher = crypto_1.default.createDecipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY.padEnd(32, "0").slice(0, 32)), iv);
         let decrypted = decipher.update(encryptedText);
         decrypted = Buffer.concat([decrypted, decipher.final()]);
         return decrypted.toString();
@@ -39,7 +45,7 @@ function decryptMessage(text) {
         return text; // Return original text if decryption fails
     }
 }
-export class OfficialChatService {
+class OfficialChatService {
     /**
      * Create or get official chat room between two users
      */
@@ -473,3 +479,4 @@ export class OfficialChatService {
         }));
     }
 }
+exports.OfficialChatService = OfficialChatService;

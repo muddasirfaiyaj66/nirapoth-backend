@@ -1,8 +1,11 @@
-import { OfficialChatService } from "../services/officialChat.service";
-import { NotificationService } from "../services/notification.service";
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
-export const createOrGetChatRoom = async (req, res) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getAvailableOfficials = exports.getUnreadCount = exports.markMessageAsRead = exports.getMessages = exports.sendMessage = exports.getChatRoom = exports.getMyChatRooms = exports.createOrGetChatRoom = void 0;
+const officialChat_service_1 = require("../services/officialChat.service");
+const notification_service_1 = require("../services/notification.service");
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
+const createOrGetChatRoom = async (req, res) => {
     try {
         const user1Id = req.user?.id;
         if (!user1Id) {
@@ -17,7 +20,7 @@ export const createOrGetChatRoom = async (req, res) => {
             });
             return;
         }
-        const chatRoom = await OfficialChatService.createOrGetChatRoom(user1Id, user2Id);
+        const chatRoom = await officialChat_service_1.OfficialChatService.createOrGetChatRoom(user1Id, user2Id);
         res.status(201).json({
             success: true,
             message: "Chat room retrieved successfully",
@@ -32,14 +35,15 @@ export const createOrGetChatRoom = async (req, res) => {
         });
     }
 };
-export const getMyChatRooms = async (req, res) => {
+exports.createOrGetChatRoom = createOrGetChatRoom;
+const getMyChatRooms = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
             res.status(401).json({ success: false, message: "Unauthorized" });
             return;
         }
-        const chatRooms = await OfficialChatService.getMyChatRooms(userId);
+        const chatRooms = await officialChat_service_1.OfficialChatService.getMyChatRooms(userId);
         res.status(200).json({
             success: true,
             count: chatRooms.length,
@@ -54,7 +58,8 @@ export const getMyChatRooms = async (req, res) => {
         });
     }
 };
-export const getChatRoom = async (req, res) => {
+exports.getMyChatRooms = getMyChatRooms;
+const getChatRoom = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -62,7 +67,7 @@ export const getChatRoom = async (req, res) => {
             return;
         }
         const { roomId } = req.params;
-        const chatRoom = await OfficialChatService.getChatRoom(roomId, userId);
+        const chatRoom = await officialChat_service_1.OfficialChatService.getChatRoom(roomId, userId);
         res.status(200).json({
             success: true,
             data: chatRoom,
@@ -78,7 +83,8 @@ export const getChatRoom = async (req, res) => {
         });
     }
 };
-export const sendMessage = async (req, res) => {
+exports.getChatRoom = getChatRoom;
+const sendMessage = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -95,7 +101,7 @@ export const sendMessage = async (req, res) => {
             });
             return;
         }
-        const newMessage = await OfficialChatService.sendMessage(roomId, userId, message || "", messageType, mediaUrl);
+        const newMessage = await officialChat_service_1.OfficialChatService.sendMessage(roomId, userId, message || "", messageType, mediaUrl);
         // Send notification to the other user
         const chatRoom = await prisma.officialChatRoom.findUnique({
             where: { id: roomId },
@@ -107,7 +113,7 @@ export const sendMessage = async (req, res) => {
                 select: { firstName: true, lastName: true },
             });
             if (sender) {
-                await NotificationService.notifyNewMessage(recipientId, `${sender.firstName} ${sender.lastName}`, roomId).catch((err) => console.error("Failed to send notification:", err));
+                await notification_service_1.NotificationService.notifyNewMessage(recipientId, `${sender.firstName} ${sender.lastName}`, roomId).catch((err) => console.error("Failed to send notification:", err));
             }
         }
         res.status(201).json({
@@ -124,7 +130,8 @@ export const sendMessage = async (req, res) => {
         });
     }
 };
-export const getMessages = async (req, res) => {
+exports.sendMessage = sendMessage;
+const getMessages = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -134,7 +141,7 @@ export const getMessages = async (req, res) => {
         const { roomId } = req.params;
         const limit = req.query.limit ? parseInt(req.query.limit) : 50;
         const skip = req.query.skip ? parseInt(req.query.skip) : 0;
-        const messages = await OfficialChatService.getMessages(roomId, userId, limit, skip);
+        const messages = await officialChat_service_1.OfficialChatService.getMessages(roomId, userId, limit, skip);
         res.status(200).json({
             success: true,
             count: messages.length,
@@ -151,7 +158,8 @@ export const getMessages = async (req, res) => {
         });
     }
 };
-export const markMessageAsRead = async (req, res) => {
+exports.getMessages = getMessages;
+const markMessageAsRead = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -159,7 +167,7 @@ export const markMessageAsRead = async (req, res) => {
             return;
         }
         const { messageId } = req.params;
-        const message = await OfficialChatService.markMessageAsRead(messageId, userId);
+        const message = await officialChat_service_1.OfficialChatService.markMessageAsRead(messageId, userId);
         res.status(200).json({
             success: true,
             message: "Message marked as read",
@@ -174,14 +182,15 @@ export const markMessageAsRead = async (req, res) => {
         });
     }
 };
-export const getUnreadCount = async (req, res) => {
+exports.markMessageAsRead = markMessageAsRead;
+const getUnreadCount = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
             res.status(401).json({ success: false, message: "Unauthorized" });
             return;
         }
-        const count = await OfficialChatService.getUnreadCount(userId);
+        const count = await officialChat_service_1.OfficialChatService.getUnreadCount(userId);
         res.status(200).json({
             success: true,
             data: { count },
@@ -195,14 +204,15 @@ export const getUnreadCount = async (req, res) => {
         });
     }
 };
-export const getAvailableOfficials = async (req, res) => {
+exports.getUnreadCount = getUnreadCount;
+const getAvailableOfficials = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
             res.status(401).json({ success: false, message: "Unauthorized" });
             return;
         }
-        const officials = await OfficialChatService.getAvailableOfficials(userId);
+        const officials = await officialChat_service_1.OfficialChatService.getAvailableOfficials(userId);
         res.status(200).json({
             success: true,
             count: officials.length,
@@ -217,3 +227,4 @@ export const getAvailableOfficials = async (req, res) => {
         });
     }
 };
+exports.getAvailableOfficials = getAvailableOfficials;

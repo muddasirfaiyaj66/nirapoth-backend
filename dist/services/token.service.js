@@ -1,15 +1,21 @@
-import crypto from "crypto";
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TokenService = void 0;
+const crypto_1 = __importDefault(require("crypto"));
 /**
  * Token Service for generating and validating various types of tokens
  */
-export class TokenService {
+class TokenService {
     /**
      * Generate a random token
      * @param length - Length of the token (default: 32)
      * @returns Random token string
      */
     static generateToken(length = 32) {
-        return crypto.randomBytes(length).toString("hex");
+        return crypto_1.default.randomBytes(length).toString("hex");
     }
     /**
      * Generate email verification token
@@ -31,7 +37,7 @@ export class TokenService {
      * @returns Hashed token
      */
     static hashToken(token) {
-        return crypto.createHash("sha256").update(token).digest("hex");
+        return crypto_1.default.createHash("sha256").update(token).digest("hex");
     }
     /**
      * Verify a token against its hash
@@ -41,7 +47,7 @@ export class TokenService {
      */
     static verifyToken(token, hash) {
         const tokenHash = this.hashToken(token);
-        return crypto.timingSafeEqual(Buffer.from(tokenHash), Buffer.from(hash));
+        return crypto_1.default.timingSafeEqual(Buffer.from(tokenHash), Buffer.from(hash));
     }
     /**
      * Check if token is expired
@@ -70,3 +76,4 @@ export class TokenService {
         return now;
     }
 }
+exports.TokenService = TokenService;

@@ -1,5 +1,8 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AdminController = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
 // Helper functions for role management
 function getRoleDescription(role) {
     const descriptions = {
@@ -49,7 +52,7 @@ function getRolePermissions(role) {
     };
     return permissions[role] || [];
 }
-export class AdminController {
+class AdminController {
     /**
      * Test analytics endpoint - simple database connectivity test
      */
@@ -1395,3 +1398,4 @@ export class AdminController {
         }
     }
 }
+exports.AdminController = AdminController;

@@ -1,14 +1,17 @@
-import { PrismaClient } from "@prisma/client";
-import { z } from "zod";
-import { hashPassword, comparePassword } from "../utils/password";
-import { updateProfileSchema, changePasswordSchema } from "../utils/validation";
-const prisma = new PrismaClient();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.uploadProfileImage = exports.changePassword = exports.updateProfile = exports.addDrivingLicense = exports.getUserDrivingLicenses = exports.validateProfile = exports.getUserStatistics = exports.getUserProfile = void 0;
+const client_1 = require("@prisma/client");
+const zod_1 = require("zod");
+const password_1 = require("../utils/password");
+const validation_1 = require("../utils/validation");
+const prisma = new client_1.PrismaClient();
 /**
  * Get user profile controller
  * @param req - Express request object (with user attached by auth middleware)
  * @param res - Express response object
  */
-export const getUserProfile = async (req, res) => {
+const getUserProfile = async (req, res) => {
     try {
         const userId = req.userId;
         if (!userId) {
@@ -86,12 +89,13 @@ export const getUserProfile = async (req, res) => {
         });
     }
 };
+exports.getUserProfile = getUserProfile;
 /**
  * Get user statistics controller
  * @param req - Express request object (with user attached by auth middleware)
  * @param res - Express response object
  */
-export const getUserStatistics = async (req, res) => {
+const getUserStatistics = async (req, res) => {
     try {
         const userId = req.userId;
         if (!userId) {
@@ -154,12 +158,13 @@ export const getUserStatistics = async (req, res) => {
         });
     }
 };
+exports.getUserStatistics = getUserStatistics;
 /**
  * Validate profile completeness controller
  * @param req - Express request object (with user attached by auth middleware)
  * @param res - Express response object
  */
-export const validateProfile = async (req, res) => {
+const validateProfile = async (req, res) => {
     try {
         const userId = req.userId;
         if (!userId) {
@@ -239,12 +244,13 @@ export const validateProfile = async (req, res) => {
         });
     }
 };
+exports.validateProfile = validateProfile;
 /**
  * Get user's driving licenses controller
  * @param req - Express request object (with user attached by auth middleware)
  * @param res - Express response object
  */
-export const getUserDrivingLicenses = async (req, res) => {
+const getUserDrivingLicenses = async (req, res) => {
     try {
         const userId = req.userId;
         if (!userId) {
@@ -279,12 +285,13 @@ export const getUserDrivingLicenses = async (req, res) => {
         });
     }
 };
+exports.getUserDrivingLicenses = getUserDrivingLicenses;
 /**
  * Add driving license controller
  * @param req - Express request object (with user attached by auth middleware)
  * @param res - Express response object
  */
-export const addDrivingLicense = async (req, res) => {
+const addDrivingLicense = async (req, res) => {
     try {
         const userId = req.userId;
         if (!userId) {
@@ -331,15 +338,16 @@ export const addDrivingLicense = async (req, res) => {
         });
     }
 };
+exports.addDrivingLicense = addDrivingLicense;
 /**
  * Update user profile controller
  * @param req - Express request object (with user attached by auth middleware)
  * @param res - Express response object
  */
-export const updateProfile = async (req, res) => {
+const updateProfile = async (req, res) => {
     try {
         // Validate request body
-        const validatedData = updateProfileSchema.parse(req.body);
+        const validatedData = validation_1.updateProfileSchema.parse(req.body);
         if (process.env.NODE_ENV === "development") {
             console.log("🔍 Profile update request:", req.body);
             console.log("✅ Validated data:", validatedData);
@@ -476,7 +484,7 @@ export const updateProfile = async (req, res) => {
         res.status(200).json(response);
     }
     catch (error) {
-        if (error instanceof z.ZodError) {
+        if (error instanceof zod_1.z.ZodError) {
             console.error("🔴 Profile validation error:", error.issues);
             res.status(400).json({
                 success: false,
@@ -494,15 +502,16 @@ export const updateProfile = async (req, res) => {
         });
     }
 };
+exports.updateProfile = updateProfile;
 /**
  * Change password controller
  * @param req - Express request object (with user attached by auth middleware)
  * @param res - Express response object
  */
-export const changePassword = async (req, res) => {
+const changePassword = async (req, res) => {
     try {
         // Validate request body
-        const validatedData = changePasswordSchema.parse(req.body);
+        const validatedData = validation_1.changePasswordSchema.parse(req.body);
         // Get user ID from authenticated request
         const userId = req.userId;
         if (!userId) {
@@ -527,7 +536,7 @@ export const changePassword = async (req, res) => {
             return;
         }
         // Verify current password
-        const isCurrentPasswordValid = await comparePassword(validatedData.currentPassword, user.password);
+        const isCurrentPasswordValid = await (0, password_1.comparePassword)(validatedData.currentPassword, user.password);
         if (!isCurrentPasswordValid) {
             res.status(400).json({
                 success: false,
@@ -537,7 +546,7 @@ export const changePassword = async (req, res) => {
             return;
         }
         // Hash new password
-        const hashedNewPassword = await hashPassword(validatedData.newPassword);
+        const hashedNewPassword = await (0, password_1.hashPassword)(validatedData.newPassword);
         // Update password
         await prisma.user.update({
             where: { id: userId },
@@ -554,7 +563,7 @@ export const changePassword = async (req, res) => {
         res.status(200).json(response);
     }
     catch (error) {
-        if (error instanceof z.ZodError) {
+        if (error instanceof zod_1.z.ZodError) {
             res.status(400).json({
                 success: false,
                 message: "Validation failed",
@@ -571,12 +580,13 @@ export const changePassword = async (req, res) => {
         });
     }
 };
+exports.changePassword = changePassword;
 /**
  * Upload profile image controller
  * @param req - Express request object (with user attached by auth middleware)
  * @param res - Express response object
  */
-export const uploadProfileImage = async (req, res) => {
+const uploadProfileImage = async (req, res) => {
     try {
         // Get user ID from authenticated request
         const userId = req.userId;
@@ -664,3 +674,4 @@ export const uploadProfileImage = async (req, res) => {
         });
     }
 };
+exports.uploadProfileImage = uploadProfileImage;

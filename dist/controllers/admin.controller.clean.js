@@ -1,6 +1,9 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
-export class AdminController {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AdminController = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
+class AdminController {
     /**
      * Test analytics endpoint - simple database connectivity test
      */
@@ -426,3 +429,4 @@ export class AdminController {
         });
     }
 }
+exports.AdminController = AdminController;

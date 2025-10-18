@@ -1,0 +1,9 @@
+tests
+*.test.ts
+*.spec.ts
+.env.example
+.git
+.DS_Store
+docs/*.md
+!docs/API.md
+prisma/*.db

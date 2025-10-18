@@ -1,31 +1,33 @@
-import { prisma } from "../lib/prisma";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const prisma_1 = require("../lib/prisma");
 class VehicleService {
     /**
      * Create a new vehicle
      */
     async createVehicle(data) {
         // Check for duplicate plate number
-        const existingPlate = await prisma.vehicle.findUnique({
+        const existingPlate = await prisma_1.prisma.vehicle.findUnique({
             where: { plateNo: data.plateNo },
         });
         if (existingPlate && !existingPlate.isDeleted) {
             throw new Error("Vehicle with this plate number already exists");
         }
         // Check for duplicate engine number
-        const existingEngine = await prisma.vehicle.findUnique({
+        const existingEngine = await prisma_1.prisma.vehicle.findUnique({
             where: { engineNo: data.engineNo },
         });
         if (existingEngine && !existingEngine.isDeleted) {
             throw new Error("Vehicle with this engine number already exists");
         }
         // Check for duplicate chassis number
-        const existingChassis = await prisma.vehicle.findUnique({
+        const existingChassis = await prisma_1.prisma.vehicle.findUnique({
             where: { chassisNo: data.chassisNo },
         });
         if (existingChassis && !existingChassis.isDeleted) {
             throw new Error("Vehicle with this chassis number already exists");
         }
-        return await prisma.vehicle.create({
+        return await prisma_1.prisma.vehicle.create({
             data,
             include: {
                 owner: {
@@ -45,7 +47,7 @@ class VehicleService {
      * Get all vehicles for a user
      */
     async getVehiclesByUserId(userId) {
-        return await prisma.vehicle.findMany({
+        return await prisma_1.prisma.vehicle.findMany({
             where: {
                 ownerId: userId,
                 isDeleted: false,
@@ -90,7 +92,7 @@ class VehicleService {
      * Get vehicle by ID
      */
     async getVehicleById(vehicleId) {
-        const vehicle = await prisma.vehicle.findUnique({
+        const vehicle = await prisma_1.prisma.vehicle.findUnique({
             where: { id: vehicleId },
             include: {
                 owner: {
@@ -155,7 +157,7 @@ class VehicleService {
      * Get vehicle by plate number
      */
     async getVehicleByPlateNo(plateNo) {
-        const vehicle = await prisma.vehicle.findUnique({
+        const vehicle = await prisma_1.prisma.vehicle.findUnique({
             where: { plateNo },
             include: {
                 owner: {
@@ -189,7 +191,7 @@ class VehicleService {
      */
     async updateVehicle(vehicleId, ownerId, data) {
         // Verify ownership
-        const vehicle = await prisma.vehicle.findUnique({
+        const vehicle = await prisma_1.prisma.vehicle.findUnique({
             where: { id: vehicleId },
         });
         if (!vehicle) {
@@ -201,7 +203,7 @@ class VehicleService {
         if (vehicle.isDeleted) {
             throw new Error("Vehicle has been deleted");
         }
-        return await prisma.vehicle.update({
+        return await prisma_1.prisma.vehicle.update({
             where: { id: vehicleId },
             data,
             include: {
@@ -223,7 +225,7 @@ class VehicleService {
      */
     async deleteVehicle(vehicleId, ownerId) {
         // Verify ownership
-        const vehicle = await prisma.vehicle.findUnique({
+        const vehicle = await prisma_1.prisma.vehicle.findUnique({
             where: { id: vehicleId },
         });
         if (!vehicle) {
@@ -232,7 +234,7 @@ class VehicleService {
         if (vehicle.ownerId !== ownerId) {
             throw new Error("You are not authorized to delete this vehicle");
         }
-        return await prisma.vehicle.update({
+        return await prisma_1.prisma.vehicle.update({
             where: { id: vehicleId },
             data: {
                 isDeleted: true,
@@ -244,7 +246,7 @@ class VehicleService {
      * Get vehicle statistics
      */
     async getVehicleStats(vehicleId) {
-        const vehicle = await prisma.vehicle.findUnique({
+        const vehicle = await prisma_1.prisma.vehicle.findUnique({
             where: { id: vehicleId },
             include: {
                 violations: {
@@ -288,7 +290,7 @@ class VehicleService {
      * Search vehicles by plate number (for police/admin)
      */
     async searchVehicles(query, limit = 10) {
-        return await prisma.vehicle.findMany({
+        return await prisma_1.prisma.vehicle.findMany({
             where: {
                 OR: [
                     { plateNo: { contains: query, mode: "insensitive" } },
@@ -322,4 +324,4 @@ class VehicleService {
         });
     }
 }
-export default new VehicleService();
+exports.default = new VehicleService();

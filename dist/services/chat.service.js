@@ -1,12 +1,18 @@
-import { PrismaClient, ChatRequestStatus } from "@prisma/client";
-import crypto from "crypto";
-const prisma = new PrismaClient();
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ChatService = void 0;
+const client_1 = require("@prisma/client");
+const crypto_1 = __importDefault(require("crypto"));
+const prisma = new client_1.PrismaClient();
 // Simple encryption/decryption (can be replaced with more robust solution)
 const ENCRYPTION_KEY = process.env.CHAT_ENCRYPTION_KEY || "default-key-32-characters-long!";
 const ALGORITHM = "aes-256-cbc";
 function encryptMessage(text) {
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY.padEnd(32, "0").slice(0, 32)), iv);
+    const iv = crypto_1.default.randomBytes(16);
+    const cipher = crypto_1.default.createCipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY.padEnd(32, "0").slice(0, 32)), iv);
     let encrypted = cipher.update(text, "utf8", "hex");
     encrypted += cipher.final("hex");
     return iv.toString("hex") + ":" + encrypted;
@@ -28,7 +34,7 @@ function decryptMessage(text) {
             console.warn("Invalid IV length, returning original text");
             return text;
         }
-        const decipher = crypto.createDecipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY.padEnd(32, "0").slice(0, 32)), iv);
+        const decipher = crypto_1.default.createDecipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY.padEnd(32, "0").slice(0, 32)), iv);
         let decrypted = decipher.update(encryptedText, "hex", "utf8");
         decrypted += decipher.final("utf8");
         return decrypted;
@@ -38,7 +44,7 @@ function decryptMessage(text) {
         return text; // Return original text if decryption fails
     }
 }
-export class ChatService {
+class ChatService {
     /**
      * Create a new chat room request
      */
@@ -114,7 +120,7 @@ export class ChatService {
             data: {
                 citizenId,
                 driverId,
-                status: ChatRequestStatus.PENDING,
+                status: client_1.ChatRequestStatus.PENDING,
             },
             include: {
                 citizen: {
@@ -161,13 +167,13 @@ export class ChatService {
         if (room.driverId !== userId) {
             throw new Error("Only the driver can accept chat requests");
         }
-        if (room.status !== ChatRequestStatus.PENDING) {
+        if (room.status !== client_1.ChatRequestStatus.PENDING) {
             throw new Error("Chat request is not pending");
         }
         return await prisma.chatRoom.update({
             where: { id: roomId },
             data: {
-                status: ChatRequestStatus.ACCEPTED,
+                status: client_1.ChatRequestStatus.ACCEPTED,
             },
             include: {
                 citizen: {
@@ -203,13 +209,13 @@ export class ChatService {
         if (room.driverId !== userId) {
             throw new Error("Only the driver can reject chat requests");
         }
-        if (room.status !== ChatRequestStatus.PENDING) {
+        if (room.status !== client_1.ChatRequestStatus.PENDING) {
             throw new Error("Chat request is not pending");
         }
         return await prisma.chatRoom.update({
             where: { id: roomId },
             data: {
-                status: ChatRequestStatus.REJECTED,
+                status: client_1.ChatRequestStatus.REJECTED,
             },
         });
     }
@@ -343,7 +349,7 @@ export class ChatService {
             throw new Error("Unauthorized to send message in this chat");
         }
         // Only allow messages in accepted chats
-        if (room.status !== ChatRequestStatus.ACCEPTED) {
+        if (room.status !== client_1.ChatRequestStatus.ACCEPTED) {
             throw new Error("Chat request must be accepted before sending messages");
         }
         // Trim and validate message
@@ -482,3 +488,4 @@ export class ChatService {
         return count;
     }
 }
+exports.ChatService = ChatService;

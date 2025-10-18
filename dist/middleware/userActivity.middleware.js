@@ -1,12 +1,15 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.markInactiveUsersOffline = exports.markUserOffline = exports.updateUserActivity = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
 /**
  * Middleware to update user's last activity time on each authenticated request
  * This provides a simple way to track online/offline status without Socket.IO
  *
  * IMPORTANT: This middleware must be applied to protected routes AFTER auth middleware
  */
-export const updateUserActivity = async (req, res, next) => {
+const updateUserActivity = async (req, res, next) => {
     // Call next first to not block the request
     next();
     try {
@@ -33,11 +36,12 @@ export const updateUserActivity = async (req, res, next) => {
         console.error("Error in updateUserActivity middleware:", error);
     }
 };
+exports.updateUserActivity = updateUserActivity;
 /**
  * Helper function to mark user as offline
  * Call this when user logs out or session expires
  */
-export const markUserOffline = async (userId) => {
+const markUserOffline = async (userId) => {
     try {
         await prisma.user.update({
             where: { id: userId },
@@ -51,11 +55,12 @@ export const markUserOffline = async (userId) => {
         console.error("Failed to mark user as offline:", error);
     }
 };
+exports.markUserOffline = markUserOffline;
 /**
  * Cron job to mark inactive users as offline
  * Run this every 5 minutes to check for users who haven't been active
  */
-export const markInactiveUsersOffline = async () => {
+const markInactiveUsersOffline = async () => {
     try {
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
         const result = await prisma.user.updateMany({
@@ -78,3 +83,4 @@ export const markInactiveUsersOffline = async () => {
         console.error("Failed to mark inactive users as offline:", error);
     }
 };
+exports.markInactiveUsersOffline = markInactiveUsersOffline;

@@ -1,10 +1,13 @@
-import { RateLimiterMemory } from "rate-limiter-flexible";
-import { config } from "../config/env";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.registrationRateLimiterMiddleware = exports.passwordResetRateLimiterMiddleware = exports.authRateLimiterMiddleware = exports.rateLimiter = void 0;
+const rate_limiter_flexible_1 = require("rate-limiter-flexible");
+const env_1 = require("../config/env");
 // Memory-based rate limiter (for development)
-const rateLimiterMemory = new RateLimiterMemory({
+const rateLimiterMemory = new rate_limiter_flexible_1.RateLimiterMemory({
     keyPrefix: "middleware",
-    points: config.rateLimit.maxRequests,
-    duration: config.rateLimit.windowMs / 1000, // Convert to seconds
+    points: env_1.config.rateLimit.maxRequests,
+    duration: env_1.config.rateLimit.windowMs / 1000, // Convert to seconds
 });
 /**
  * General rate limiting middleware
@@ -12,7 +15,7 @@ const rateLimiterMemory = new RateLimiterMemory({
  * @param res - Express response object
  * @param next - Express next function
  */
-export const rateLimiter = async (req, res, next) => {
+const rateLimiter = async (req, res, next) => {
     try {
         const key = req.ip || "unknown";
         await rateLimiterMemory.consume(key);
@@ -29,10 +32,11 @@ export const rateLimiter = async (req, res, next) => {
         });
     }
 };
+exports.rateLimiter = rateLimiter;
 /**
  * Strict rate limiter for authentication endpoints
  */
-const authRateLimiter = new RateLimiterMemory({
+const authRateLimiter = new rate_limiter_flexible_1.RateLimiterMemory({
     keyPrefix: "auth",
     points: 50000, // 50000 attempts
     duration: 900, // 15 minutes
@@ -44,7 +48,7 @@ const authRateLimiter = new RateLimiterMemory({
  * @param res - Express response object
  * @param next - Express next function
  */
-export const authRateLimiterMiddleware = async (req, res, next) => {
+const authRateLimiterMiddleware = async (req, res, next) => {
     try {
         const key = req.ip || "unknown";
         await authRateLimiter.consume(key);
@@ -61,10 +65,11 @@ export const authRateLimiterMiddleware = async (req, res, next) => {
         });
     }
 };
+exports.authRateLimiterMiddleware = authRateLimiterMiddleware;
 /**
  * Password reset rate limiter
  */
-const passwordResetRateLimiter = new RateLimiterMemory({
+const passwordResetRateLimiter = new rate_limiter_flexible_1.RateLimiterMemory({
     keyPrefix: "password_reset",
     points: 3, // 3 attempts
     duration: 3600, // 1 hour
@@ -76,7 +81,7 @@ const passwordResetRateLimiter = new RateLimiterMemory({
  * @param res - Express response object
  * @param next - Express next function
  */
-export const passwordResetRateLimiterMiddleware = async (req, res, next) => {
+const passwordResetRateLimiterMiddleware = async (req, res, next) => {
     try {
         const key = req.ip || "unknown";
         await passwordResetRateLimiter.consume(key);
@@ -93,10 +98,11 @@ export const passwordResetRateLimiterMiddleware = async (req, res, next) => {
         });
     }
 };
+exports.passwordResetRateLimiterMiddleware = passwordResetRateLimiterMiddleware;
 /**
  * Registration rate limiter
  */
-const registrationRateLimiter = new RateLimiterMemory({
+const registrationRateLimiter = new rate_limiter_flexible_1.RateLimiterMemory({
     keyPrefix: "registration",
     points: 13, // 3 attempts
     duration: 3600, // 1 hour
@@ -108,7 +114,7 @@ const registrationRateLimiter = new RateLimiterMemory({
  * @param res - Express response object
  * @param next - Express next function
  */
-export const registrationRateLimiterMiddleware = async (req, res, next) => {
+const registrationRateLimiterMiddleware = async (req, res, next) => {
     try {
         const key = req.ip || "unknown";
         await registrationRateLimiter.consume(key);
@@ -125,3 +131,4 @@ export const registrationRateLimiterMiddleware = async (req, res, next) => {
         });
     }
 };
+exports.registrationRateLimiterMiddleware = registrationRateLimiterMiddleware;

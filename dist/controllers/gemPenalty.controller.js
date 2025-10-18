@@ -1,9 +1,12 @@
-import { GemPenaltyService } from "../services/gemPenalty.service";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getRecommendedDeduction = exports.getGemPenaltyStats = exports.getAllGemPenalties = exports.getGemPenaltyHistory = exports.applyGemPenalty = exports.searchDriverByLicense = void 0;
+const gemPenalty_service_1 = require("../services/gemPenalty.service");
 /**
  * Search driver by license number
  * @route GET /api/police/search-driver?license=XXX
  */
-export const searchDriverByLicense = async (req, res) => {
+const searchDriverByLicense = async (req, res) => {
     try {
         // Support both 'license' and 'licenseNo' query param names (frontend uses licenseNo)
         const license = (req.query.license || req.query.licenseNo);
@@ -14,7 +17,7 @@ export const searchDriverByLicense = async (req, res) => {
             });
             return;
         }
-        const result = await GemPenaltyService.searchByLicense(license);
+        const result = await gemPenalty_service_1.GemPenaltyService.searchByLicense(license);
         if (!result) {
             res.status(404).json({
                 success: false,
@@ -36,11 +39,12 @@ export const searchDriverByLicense = async (req, res) => {
         });
     }
 };
+exports.searchDriverByLicense = searchDriverByLicense;
 /**
  * Apply gem penalty to a driver
  * @route POST /api/police/apply-gem-penalty
  */
-export const applyGemPenalty = async (req, res) => {
+const applyGemPenalty = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -71,7 +75,7 @@ export const applyGemPenalty = async (req, res) => {
             });
             return;
         }
-        const result = await GemPenaltyService.applyPenalty({
+        const result = await gemPenalty_service_1.GemPenaltyService.applyPenalty({
             citizenId,
             amount: Number(parsedAmount),
             reason,
@@ -96,16 +100,17 @@ export const applyGemPenalty = async (req, res) => {
         });
     }
 };
+exports.applyGemPenalty = applyGemPenalty;
 /**
  * Get gem penalty history for a citizen
  * @route GET /api/police/gem-penalty-history/:citizenId
  */
-export const getGemPenaltyHistory = async (req, res) => {
+const getGemPenaltyHistory = async (req, res) => {
     try {
         const { citizenId } = req.params;
         const limit = parseInt(req.query.limit) || 50;
         const skip = parseInt(req.query.skip) || 0;
-        const result = await GemPenaltyService.getPenaltyHistory(citizenId, limit, skip);
+        const result = await gemPenalty_service_1.GemPenaltyService.getPenaltyHistory(citizenId, limit, skip);
         res.status(200).json({
             success: true,
             data: result.penalties,
@@ -121,11 +126,12 @@ export const getGemPenaltyHistory = async (req, res) => {
         });
     }
 };
+exports.getGemPenaltyHistory = getGemPenaltyHistory;
 /**
  * Get all gem penalties (admin/police)
  * @route GET /api/police/gem-penalties
  */
-export const getAllGemPenalties = async (req, res) => {
+const getAllGemPenalties = async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 50;
         const skip = parseInt(req.query.skip) || 0;
@@ -140,7 +146,7 @@ export const getAllGemPenalties = async (req, res) => {
             filters.dateFrom = new Date(req.query.dateFrom);
         if (req.query.dateTo)
             filters.dateTo = new Date(req.query.dateTo);
-        const result = await GemPenaltyService.getAllPenalties(filters, limit, skip);
+        const result = await gemPenalty_service_1.GemPenaltyService.getAllPenalties(filters, limit, skip);
         res.status(200).json({
             success: true,
             data: result.penalties,
@@ -156,15 +162,16 @@ export const getAllGemPenalties = async (req, res) => {
         });
     }
 };
+exports.getAllGemPenalties = getAllGemPenalties;
 /**
  * Get gem penalty statistics
  * @route GET /api/police/gem-penalty-stats
  */
-export const getGemPenaltyStats = async (req, res) => {
+const getGemPenaltyStats = async (req, res) => {
     try {
         const userId = req.user?.id;
         const officerId = req.query.myStats === "true" ? userId : undefined;
-        const stats = await GemPenaltyService.getStatistics(officerId);
+        const stats = await gemPenalty_service_1.GemPenaltyService.getStatistics(officerId);
         res.status(200).json({
             success: true,
             data: stats,
@@ -178,14 +185,15 @@ export const getGemPenaltyStats = async (req, res) => {
         });
     }
 };
+exports.getGemPenaltyStats = getGemPenaltyStats;
 /**
  * Get recommended gem deduction amount
  * @route GET /api/police/recommended-deduction/:severity
  */
-export const getRecommendedDeduction = async (req, res) => {
+const getRecommendedDeduction = async (req, res) => {
     try {
         const { severity } = req.params;
-        const amount = GemPenaltyService.getRecommendedDeduction(severity);
+        const amount = gemPenalty_service_1.GemPenaltyService.getRecommendedDeduction(severity);
         res.status(200).json({
             success: true,
             data: {
@@ -202,3 +210,4 @@ export const getRecommendedDeduction = async (req, res) => {
         });
     }
 };
+exports.getRecommendedDeduction = getRecommendedDeduction;

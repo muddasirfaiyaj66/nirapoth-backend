@@ -1,4 +1,7 @@
-export const roleMiddleware = (allowedRoles) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.roleMiddleware = void 0;
+const roleMiddleware = (allowedRoles) => {
     return (req, res, next) => {
         try {
             const userRole = req.user?.role;
@@ -25,3 +28,4 @@ export const roleMiddleware = (allowedRoles) => {
         }
     };
 };
+exports.roleMiddleware = roleMiddleware;

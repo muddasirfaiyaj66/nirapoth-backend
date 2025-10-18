@@ -1,6 +1,9 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
-export class CameraController {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CameraController = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
+class CameraController {
     /**
      * Get all cameras with optional filtering
      */
@@ -422,3 +425,4 @@ export class CameraController {
         }
     }
 }
+exports.CameraController = CameraController;

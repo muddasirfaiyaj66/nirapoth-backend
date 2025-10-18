@@ -1,56 +1,59 @@
-import { z } from "zod";
-import { PoliceManagementService } from "../services/policeManagement.service";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PoliceManagementController = void 0;
+const zod_1 = require("zod");
+const policeManagement_service_1 = require("../services/policeManagement.service");
 // Validation schemas
-const createPoliceOfficerSchema = z.object({
-    firstName: z.string().min(2, "First name must be at least 2 characters"),
-    lastName: z.string().min(2, "Last name must be at least 2 characters"),
-    email: z.string().email("Invalid email address"),
-    phone: z.string().min(10, "Phone number must be valid"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    designation: z.string().min(2, "Designation must be at least 2 characters"),
-    badgeNo: z.string().min(1, "Badge number is required"),
-    rank: z.string().min(1, "Rank is required"),
-    joiningDate: z.string().transform((str) => new Date(str)),
-    stationId: z.string().uuid("Invalid station ID").optional(),
-    specialization: z.string().optional(),
-    presentAddress: z.string().optional(),
-    presentCity: z.string().optional(),
-    presentDistrict: z.string().optional(),
+const createPoliceOfficerSchema = zod_1.z.object({
+    firstName: zod_1.z.string().min(2, "First name must be at least 2 characters"),
+    lastName: zod_1.z.string().min(2, "Last name must be at least 2 characters"),
+    email: zod_1.z.string().email("Invalid email address"),
+    phone: zod_1.z.string().min(10, "Phone number must be valid"),
+    password: zod_1.z.string().min(8, "Password must be at least 8 characters"),
+    designation: zod_1.z.string().min(2, "Designation must be at least 2 characters"),
+    badgeNo: zod_1.z.string().min(1, "Badge number is required"),
+    rank: zod_1.z.string().min(1, "Rank is required"),
+    joiningDate: zod_1.z.string().transform((str) => new Date(str)),
+    stationId: zod_1.z.string().uuid("Invalid station ID").optional(),
+    specialization: zod_1.z.string().optional(),
+    presentAddress: zod_1.z.string().optional(),
+    presentCity: zod_1.z.string().optional(),
+    presentDistrict: zod_1.z.string().optional(),
 });
-const createPoliceStationSchema = z.object({
-    name: z.string().min(2, "Station name must be at least 2 characters"),
-    code: z.string().min(2, "Station code is required"),
-    stationType: z.string().optional(),
-    organizationId: z.string().uuid("Invalid organization ID").optional(),
-    locationData: z.object({
-        latitude: z.number(),
-        longitude: z.number(),
-        address: z.string().min(5, "Address must be at least 5 characters"),
-        city: z.string().min(2, "City is required").optional(),
-        district: z.string().min(2, "District is required").optional(),
-        division: z.string().min(2, "Division is required").optional(),
+const createPoliceStationSchema = zod_1.z.object({
+    name: zod_1.z.string().min(2, "Station name must be at least 2 characters"),
+    code: zod_1.z.string().min(2, "Station code is required"),
+    stationType: zod_1.z.string().optional(),
+    organizationId: zod_1.z.string().uuid("Invalid organization ID").optional(),
+    locationData: zod_1.z.object({
+        latitude: zod_1.z.number(),
+        longitude: zod_1.z.number(),
+        address: zod_1.z.string().min(5, "Address must be at least 5 characters"),
+        city: zod_1.z.string().min(2, "City is required").optional(),
+        district: zod_1.z.string().min(2, "District is required").optional(),
+        division: zod_1.z.string().min(2, "Division is required").optional(),
     }),
-    contactData: z.object({
-        phone: z.string().min(10, "Phone number must be valid"),
-        email: z.string().email("Invalid email address").optional(),
+    contactData: zod_1.z.object({
+        phone: zod_1.z.string().min(10, "Phone number must be valid"),
+        email: zod_1.z.string().email("Invalid email address").optional(),
     }),
-    capacity: z.number().optional(),
-    supervisorId: z.string().uuid("Invalid supervisor ID").optional(),
+    capacity: zod_1.z.number().optional(),
+    supervisorId: zod_1.z.string().uuid("Invalid supervisor ID").optional(),
 });
-const assignPoliceSchema = z.object({
-    policeId: z.string().uuid("Invalid police ID"),
-    stationId: z.string().uuid("Invalid station ID"),
-    role: z
+const assignPoliceSchema = zod_1.z.object({
+    policeId: zod_1.z.string().uuid("Invalid police ID"),
+    stationId: zod_1.z.string().uuid("Invalid station ID"),
+    role: zod_1.z
         .enum(["OFFICER", "INSPECTOR", "SUPERINTENDENT", "DIG", "IG"])
         .optional(),
 });
-const updatePoliceSchema = z.object({
-    designation: z.string().optional(),
-    rank: z.string().optional(),
-    specialization: z.string().optional(),
-    stationId: z.string().uuid("Invalid station ID").optional(),
+const updatePoliceSchema = zod_1.z.object({
+    designation: zod_1.z.string().optional(),
+    rank: zod_1.z.string().optional(),
+    specialization: zod_1.z.string().optional(),
+    stationId: zod_1.z.string().uuid("Invalid station ID").optional(),
 });
-export class PoliceManagementController {
+class PoliceManagementController {
     /**
      * Create new police officer
      */
@@ -66,7 +69,7 @@ export class PoliceManagementController {
                 return;
             }
             const validatedData = createPoliceOfficerSchema.parse(req.body);
-            const policeUser = await PoliceManagementService.createPoliceOfficer(validatedData, createdBy);
+            const policeUser = await policeManagement_service_1.PoliceManagementService.createPoliceOfficer(validatedData, createdBy);
             res.status(201).json({
                 success: true,
                 message: "Police officer created successfully",
@@ -76,7 +79,7 @@ export class PoliceManagementController {
         }
         catch (error) {
             console.error("Error creating police role:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -117,7 +120,7 @@ export class PoliceManagementController {
     static async createPoliceStation(req, res) {
         try {
             const validatedData = createPoliceStationSchema.parse(req.body);
-            const station = await PoliceManagementService.createPoliceStation(validatedData);
+            const station = await policeManagement_service_1.PoliceManagementService.createPoliceStation(validatedData);
             res.status(201).json({
                 success: true,
                 message: "Police station created successfully",
@@ -127,7 +130,7 @@ export class PoliceManagementController {
         }
         catch (error) {
             console.error("Error creating police station:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -166,7 +169,7 @@ export class PoliceManagementController {
                 });
                 return;
             }
-            const assignment = await PoliceManagementService.assignToStation(validatedData.policeId, validatedData.stationId, assignedBy);
+            const assignment = await policeManagement_service_1.PoliceManagementService.assignToStation(validatedData.policeId, validatedData.stationId, assignedBy);
             res.status(200).json({
                 success: true,
                 message: "Police officer assigned to station successfully",
@@ -176,7 +179,7 @@ export class PoliceManagementController {
         }
         catch (error) {
             console.error("Error assigning police to station:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -217,7 +220,7 @@ export class PoliceManagementController {
                 });
                 return;
             }
-            const officers = await PoliceManagementService.getOfficersByStation(stationId);
+            const officers = await policeManagement_service_1.PoliceManagementService.getOfficersByStation(stationId);
             res.status(200).json({
                 success: true,
                 message: "Police officers retrieved successfully",
@@ -248,7 +251,7 @@ export class PoliceManagementController {
                 });
                 return;
             }
-            const hierarchy = await PoliceManagementService.getStationHierarchy(stationId);
+            const hierarchy = await policeManagement_service_1.PoliceManagementService.getStationHierarchy(stationId);
             res.status(200).json({
                 success: true,
                 message: "Station hierarchy retrieved successfully",
@@ -297,7 +300,7 @@ export class PoliceManagementController {
                 });
                 return;
             }
-            const result = await PoliceManagementService.updateRank(officerId, newRank, promotedBy);
+            const result = await policeManagement_service_1.PoliceManagementService.updateRank(officerId, newRank, promotedBy);
             res.status(200).json({
                 success: true,
                 message: "Officer rank updated successfully",
@@ -337,7 +340,7 @@ export class PoliceManagementController {
                 });
                 return;
             }
-            const result = await PoliceManagementService.setStationOC(stationId, officerId, appointedBy);
+            const result = await policeManagement_service_1.PoliceManagementService.setStationOC(stationId, officerId, appointedBy);
             res.status(200).json({
                 success: true,
                 message: "Station OC set successfully",
@@ -362,7 +365,7 @@ export class PoliceManagementController {
             const { name, badgeNo, rank, stationId } = req.query;
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 20;
-            const result = await PoliceManagementService.searchOfficers({
+            const result = await policeManagement_service_1.PoliceManagementService.searchOfficers({
                 name: name,
                 badgeNo: badgeNo,
                 rank: rank,
@@ -411,7 +414,7 @@ export class PoliceManagementController {
                 });
                 return;
             }
-            const transfer = await PoliceManagementService.transferOfficer(policeId, newStationId, transferBy, transferReason);
+            const transfer = await policeManagement_service_1.PoliceManagementService.transferOfficer(policeId, newStationId, transferBy, transferReason);
             res.status(200).json({
                 success: true,
                 message: "Police officer transferred successfully",
@@ -444,7 +447,7 @@ export class PoliceManagementController {
      */
     static async getPoliceStatistics(req, res) {
         try {
-            const statistics = await PoliceManagementService.getPoliceStatistics();
+            const statistics = await policeManagement_service_1.PoliceManagementService.getPoliceStatistics();
             res.status(200).json({
                 success: true,
                 message: "Police statistics retrieved successfully",
@@ -462,3 +465,4 @@ export class PoliceManagementController {
         }
     }
 }
+exports.PoliceManagementController = PoliceManagementController;

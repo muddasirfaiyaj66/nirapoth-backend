@@ -1,6 +1,10 @@
-import { PrismaClient } from "@prisma/client";
-export const prisma = global.prisma ||
-    new PrismaClient({
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.prisma = void 0;
+exports.disconnectPrisma = disconnectPrisma;
+const client_1 = require("@prisma/client");
+exports.prisma = global.prisma ||
+    new client_1.PrismaClient({
         log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
         datasources: {
             db: {
@@ -9,9 +13,9 @@ export const prisma = global.prisma ||
         },
     });
 if (process.env.NODE_ENV !== "production") {
-    global.prisma = prisma;
+    global.prisma = exports.prisma;
 }
 // Graceful shutdown
-export async function disconnectPrisma() {
-    await prisma.$disconnect();
+async function disconnectPrisma() {
+    await exports.prisma.$disconnect();
 }

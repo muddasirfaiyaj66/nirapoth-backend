@@ -1,7 +1,10 @@
-import { PrismaClient, } from "@prisma/client";
-import { sendNotificationToUser, sendUrgentNotification, } from "../config/socket";
-const prisma = new PrismaClient();
-export class NotificationService {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.NotificationService = void 0;
+const client_1 = require("@prisma/client");
+const socket_1 = require("../config/socket");
+const prisma = new client_1.PrismaClient();
+class NotificationService {
     /**
      * Send notification to user - persists to database
      */
@@ -28,7 +31,7 @@ export class NotificationService {
             console.log(`✅ Notification created for user ${data.userId}: ${data.title}`);
             // Emit real-time notification via Socket.IO
             if (data.priority === "URGENT") {
-                sendUrgentNotification(data.userId, {
+                (0, socket_1.sendUrgentNotification)(data.userId, {
                     userId: data.userId,
                     title: data.title,
                     message: data.message,
@@ -42,7 +45,7 @@ export class NotificationService {
                 });
             }
             else {
-                sendNotificationToUser(data.userId, {
+                (0, socket_1.sendNotificationToUser)(data.userId, {
                     userId: data.userId,
                     title: data.title,
                     message: data.message,
@@ -374,3 +377,4 @@ export class NotificationService {
         });
     }
 }
+exports.NotificationService = NotificationService;

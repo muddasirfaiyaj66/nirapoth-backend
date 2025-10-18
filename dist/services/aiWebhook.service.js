@@ -1,6 +1,9 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
-export class AIWebhookService {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AIWebhookService = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
+class AIWebhookService {
     /**
      * Handle Fire Detection from AI
      */
@@ -191,3 +194,4 @@ export class AIWebhookService {
         };
     }
 }
+exports.AIWebhookService = AIWebhookService;

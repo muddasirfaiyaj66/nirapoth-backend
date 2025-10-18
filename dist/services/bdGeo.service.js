@@ -1,13 +1,19 @@
-import { PrismaClient } from "@prisma/client";
-import axios from "axios";
-const prisma = new PrismaClient();
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.searchLocations = exports.getAllUpazilas = exports.getUpazilasByDistrict = exports.getAllDistricts = exports.getDistrictsByDivision = exports.getAllDivisions = exports.populateAllBDGeoData = exports.populateUpazilas = exports.populateDistricts = exports.populateDivisions = exports.fetchUpazilasByDistrictFromAPI = exports.fetchDistrictsByDivisionFromAPI = exports.fetchDistrictsFromAPI = exports.fetchDivisionsFromAPI = void 0;
+const client_1 = require("@prisma/client");
+const axios_1 = __importDefault(require("axios"));
+const prisma = new client_1.PrismaClient();
 const BD_API_BASE = "https://bdapi.vercel.app/api/v.1";
 /**
  * Fetch all divisions from BD API
  */
-export const fetchDivisionsFromAPI = async () => {
+const fetchDivisionsFromAPI = async () => {
     try {
-        const response = await axios.get(`${BD_API_BASE}/division`);
+        const response = await axios_1.default.get(`${BD_API_BASE}/division`);
         return response.data.data;
     }
     catch (error) {
@@ -15,12 +21,13 @@ export const fetchDivisionsFromAPI = async () => {
         throw new Error("Failed to fetch divisions from BD API");
     }
 };
+exports.fetchDivisionsFromAPI = fetchDivisionsFromAPI;
 /**
  * Fetch all districts from BD API
  */
-export const fetchDistrictsFromAPI = async () => {
+const fetchDistrictsFromAPI = async () => {
     try {
-        const response = await axios.get(`${BD_API_BASE}/district`);
+        const response = await axios_1.default.get(`${BD_API_BASE}/district`);
         return response.data.data;
     }
     catch (error) {
@@ -28,12 +35,13 @@ export const fetchDistrictsFromAPI = async () => {
         throw new Error("Failed to fetch districts from BD API");
     }
 };
+exports.fetchDistrictsFromAPI = fetchDistrictsFromAPI;
 /**
  * Fetch districts by division ID from BD API
  */
-export const fetchDistrictsByDivisionFromAPI = async (divisionId) => {
+const fetchDistrictsByDivisionFromAPI = async (divisionId) => {
     try {
-        const response = await axios.get(`${BD_API_BASE}/district/${divisionId}`);
+        const response = await axios_1.default.get(`${BD_API_BASE}/district/${divisionId}`);
         return response.data.data;
     }
     catch (error) {
@@ -41,12 +49,13 @@ export const fetchDistrictsByDivisionFromAPI = async (divisionId) => {
         throw new Error("Failed to fetch districts from BD API");
     }
 };
+exports.fetchDistrictsByDivisionFromAPI = fetchDistrictsByDivisionFromAPI;
 /**
  * Fetch all upazilas for a district from BD API
  */
-export const fetchUpazilasByDistrictFromAPI = async (districtId) => {
+const fetchUpazilasByDistrictFromAPI = async (districtId) => {
     try {
-        const response = await axios.get(`${BD_API_BASE}/upazilla/${districtId}`);
+        const response = await axios_1.default.get(`${BD_API_BASE}/upazilla/${districtId}`);
         return response.data.data;
     }
     catch (error) {
@@ -54,12 +63,13 @@ export const fetchUpazilasByDistrictFromAPI = async (districtId) => {
         throw new Error("Failed to fetch upazilas from BD API");
     }
 };
+exports.fetchUpazilasByDistrictFromAPI = fetchUpazilasByDistrictFromAPI;
 /**
  * Populate database with all divisions
  */
-export const populateDivisions = async () => {
+const populateDivisions = async () => {
     try {
-        const divisions = await fetchDivisionsFromAPI();
+        const divisions = await (0, exports.fetchDivisionsFromAPI)();
         console.log(`📥 Fetched ${divisions.length} divisions from BD API`);
         for (const division of divisions) {
             await prisma.division.upsert({
@@ -84,12 +94,13 @@ export const populateDivisions = async () => {
         throw error;
     }
 };
+exports.populateDivisions = populateDivisions;
 /**
  * Populate database with all districts
  */
-export const populateDistricts = async () => {
+const populateDistricts = async () => {
     try {
-        const districts = await fetchDistrictsFromAPI();
+        const districts = await (0, exports.fetchDistrictsFromAPI)();
         console.log(`📥 Fetched ${districts.length} districts from BD API`);
         for (const district of districts) {
             await prisma.district.upsert({
@@ -120,10 +131,11 @@ export const populateDistricts = async () => {
         throw error;
     }
 };
+exports.populateDistricts = populateDistricts;
 /**
  * Populate database with all upazilas
  */
-export const populateUpazilas = async () => {
+const populateUpazilas = async () => {
     try {
         // First get all districts to know which upazilas to fetch
         const districts = await prisma.district.findMany({
@@ -133,7 +145,7 @@ export const populateUpazilas = async () => {
         let totalUpazilas = 0;
         for (const district of districts) {
             try {
-                const upazilas = await fetchUpazilasByDistrictFromAPI(district.id);
+                const upazilas = await (0, exports.fetchUpazilasByDistrictFromAPI)(district.id);
                 for (const upazila of upazilas) {
                     await prisma.upazila.upsert({
                         where: { id: upazila.id },
@@ -166,23 +178,24 @@ export const populateUpazilas = async () => {
         throw error;
     }
 };
+exports.populateUpazilas = populateUpazilas;
 /**
  * Populate all BD geographical data
  */
-export const populateAllBDGeoData = async () => {
+const populateAllBDGeoData = async () => {
     console.log("🚀 Starting BD Geographical Data Population...\n");
     try {
         // Step 1: Populate divisions
         console.log("Step 1: Populating Divisions...");
-        await populateDivisions();
+        await (0, exports.populateDivisions)();
         console.log();
         // Step 2: Populate districts
         console.log("Step 2: Populating Districts...");
-        await populateDistricts();
+        await (0, exports.populateDistricts)();
         console.log();
         // Step 3: Populate upazilas
         console.log("Step 3: Populating Upazilas...");
-        await populateUpazilas();
+        await (0, exports.populateUpazilas)();
         console.log();
         console.log("🎉 BD Geographical Data Population Complete!");
     }
@@ -191,54 +204,60 @@ export const populateAllBDGeoData = async () => {
         throw error;
     }
 };
+exports.populateAllBDGeoData = populateAllBDGeoData;
 /**
  * Get all divisions from database
  */
-export const getAllDivisions = async () => {
+const getAllDivisions = async () => {
     return await prisma.division.findMany({
         orderBy: { name: "asc" },
     });
 };
+exports.getAllDivisions = getAllDivisions;
 /**
  * Get districts by division ID from database
  */
-export const getDistrictsByDivision = async (divisionId) => {
+const getDistrictsByDivision = async (divisionId) => {
     return await prisma.district.findMany({
         where: { divisionId },
         orderBy: { name: "asc" },
     });
 };
+exports.getDistrictsByDivision = getDistrictsByDivision;
 /**
  * Get all districts from database
  */
-export const getAllDistricts = async () => {
+const getAllDistricts = async () => {
     return await prisma.district.findMany({
         include: { division: true },
         orderBy: { name: "asc" },
     });
 };
+exports.getAllDistricts = getAllDistricts;
 /**
  * Get upazilas by district ID from database
  */
-export const getUpazilasByDistrict = async (districtId) => {
+const getUpazilasByDistrict = async (districtId) => {
     return await prisma.upazila.findMany({
         where: { districtId },
         orderBy: { name: "asc" },
     });
 };
+exports.getUpazilasByDistrict = getUpazilasByDistrict;
 /**
  * Get all upazilas from database
  */
-export const getAllUpazilas = async () => {
+const getAllUpazilas = async () => {
     return await prisma.upazila.findMany({
         include: { district: { include: { division: true } } },
         orderBy: { name: "asc" },
     });
 };
+exports.getAllUpazilas = getAllUpazilas;
 /**
  * Search locations by query
  */
-export const searchLocations = async (query) => {
+const searchLocations = async (query) => {
     const lowerQuery = query.toLowerCase();
     const [divisions, districts, upazilas] = await Promise.all([
         prisma.division.findMany({
@@ -277,3 +296,4 @@ export const searchLocations = async (query) => {
         upazilas,
     };
 };
+exports.searchLocations = searchLocations;

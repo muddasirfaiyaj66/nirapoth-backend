@@ -1,18 +1,21 @@
-import { PrismaClient } from "@prisma/client";
-import { z } from "zod";
-const prisma = new PrismaClient();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RewardsController = void 0;
+const client_1 = require("@prisma/client");
+const zod_1 = require("zod");
+const prisma = new client_1.PrismaClient();
 // Validation schemas
-const withdrawalRequestSchema = z.object({
-    amount: z.number().positive("Amount must be positive"),
-    method: z.enum(["BANK_TRANSFER", "MOBILE_BANKING", "CASH"]),
-    accountDetails: z.object({
-        accountNumber: z.string().optional(),
-        accountName: z.string().optional(),
-        bankName: z.string().optional(),
-        mobileNumber: z.string().optional(),
+const withdrawalRequestSchema = zod_1.z.object({
+    amount: zod_1.z.number().positive("Amount must be positive"),
+    method: zod_1.z.enum(["BANK_TRANSFER", "MOBILE_BANKING", "CASH"]),
+    accountDetails: zod_1.z.object({
+        accountNumber: zod_1.z.string().optional(),
+        accountName: zod_1.z.string().optional(),
+        bankName: zod_1.z.string().optional(),
+        mobileNumber: zod_1.z.string().optional(),
     }),
 });
-export class RewardsController {
+class RewardsController {
     /**
      * Get user's reward balance
      * @route GET /api/rewards/balance
@@ -566,3 +569,4 @@ export class RewardsController {
         }
     }
 }
+exports.RewardsController = RewardsController;

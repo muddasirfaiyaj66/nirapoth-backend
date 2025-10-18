@@ -1,20 +1,23 @@
-import { PrismaClient } from "@prisma/client";
-import { z } from "zod";
-import { JWTService } from "../services/jwt.service";
-import { EmailService } from "../services/email.service";
-import { TokenService } from "../services/token.service";
-import { hashPassword, comparePassword } from "../utils/password";
-import { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema, } from "../utils/validation";
-const prisma = new PrismaClient();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.resetPassword = exports.forgotPassword = exports.verifyEmail = exports.getCurrentUser = exports.refreshToken = exports.logout = exports.login = exports.register = void 0;
+const client_1 = require("@prisma/client");
+const zod_1 = require("zod");
+const jwt_service_1 = require("../services/jwt.service");
+const email_service_1 = require("../services/email.service");
+const token_service_1 = require("../services/token.service");
+const password_1 = require("../utils/password");
+const validation_1 = require("../utils/validation");
+const prisma = new client_1.PrismaClient();
 /**
  * User Registration Controller
  * @param req - Express request object
  * @param res - Express response object
  */
-export const register = async (req, res) => {
+const register = async (req, res) => {
     try {
         // Validate request body
-        const validatedData = registerSchema.parse(req.body);
+        const validatedData = validation_1.registerSchema.parse(req.body);
         // Check if user already exists
         const existingUser = await prisma.user.findUnique({
             where: { email: validatedData.email },
@@ -28,15 +31,15 @@ export const register = async (req, res) => {
             return;
         }
         // Hash password
-        const hashedPassword = await hashPassword(validatedData.password);
+        const hashedPassword = await (0, password_1.hashPassword)(validatedData.password);
         // Check if in development mode without email config
         const isDevelopment = process.env.NODE_ENV === "development";
         const hasEmailConfig = process.env.EMAIL_SEND_USER_EMAIL && process.env.EMAIL_SEND_USER_PASS;
         const autoVerifyInDev = isDevelopment && !hasEmailConfig;
         // Generate email verification token
-        const verificationToken = TokenService.generateEmailVerificationToken();
-        const hashedToken = TokenService.hashToken(verificationToken);
-        const tokenExpires = TokenService.getEmailVerificationExpiration();
+        const verificationToken = token_service_1.TokenService.generateEmailVerificationToken();
+        const hashedToken = token_service_1.TokenService.hashToken(verificationToken);
+        const tokenExpires = token_service_1.TokenService.getEmailVerificationExpiration();
         // Create user (always as CITIZEN - role can only be changed by admin)
         const user = await prisma.user.create({
             data: {
@@ -78,7 +81,7 @@ export const register = async (req, res) => {
         // Send verification email (skip in dev mode without email config)
         if (!autoVerifyInDev) {
             try {
-                const emailService = new EmailService();
+                const emailService = new email_service_1.EmailService();
                 await emailService.sendVerificationEmail({
                     email: user.email,
                     firstName: user.firstName,
@@ -105,7 +108,7 @@ export const register = async (req, res) => {
         res.status(201).json(response);
     }
     catch (error) {
-        if (error instanceof z.ZodError) {
+        if (error instanceof zod_1.z.ZodError) {
             console.error("❌ Registration validation error:", error.issues);
             res.status(400).json({
                 success: false,
@@ -123,15 +126,16 @@ export const register = async (req, res) => {
         });
     }
 };
+exports.register = register;
 /**
  * User Login Controller
  * @param req - Express request object
  * @param res - Express response object
  */
-export const login = async (req, res) => {
+const login = async (req, res) => {
     try {
         // Validate request body
-        const validatedData = loginSchema.parse(req.body);
+        const validatedData = validation_1.loginSchema.parse(req.body);
         // Find user by email
         const user = await prisma.user.findUnique({
             where: { email: validatedData.email },
@@ -205,7 +209,7 @@ export const login = async (req, res) => {
             return;
         }
         // Compare password
-        const isPasswordValid = await comparePassword(validatedData.password, user.password);
+        const isPasswordValid = await (0, password_1.comparePassword)(validatedData.password, user.password);
         if (!isPasswordValid) {
             res.status(401).json({
                 success: false,
@@ -248,18 +252,18 @@ export const login = async (req, res) => {
             console.warn(`⚠️  Email verification bypassed for ${user.email} (development mode without email config)`);
         }
         // Generate tokens
-        const { accessToken, refreshToken } = JWTService.generateTokens(user.id, user.email, user.role);
+        const { accessToken, refreshToken } = jwt_service_1.JWTService.generateTokens(user.id, user.email, user.role);
         // Set HTTP-only cookies
         res.cookie("accessToken", accessToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+            secure: true, // Must be true for sameSite: "none"
+            sameSite: "none", // Required for cross-origin requests (frontend on different domain)
             maxAge: 15 * 60 * 1000, // 15 minutes
         });
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+            secure: true, // Must be true for sameSite: "none"
+            sameSite: "none", // Required for cross-origin requests (frontend on different domain)
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
         // Remove password from user object
@@ -284,7 +288,7 @@ export const login = async (req, res) => {
         res.status(200).json(response);
     }
     catch (error) {
-        if (error instanceof z.ZodError) {
+        if (error instanceof zod_1.z.ZodError) {
             res.status(400).json({
                 success: false,
                 message: "Validation failed",
@@ -301,29 +305,41 @@ export const login = async (req, res) => {
         });
     }
 };
+exports.login = login;
 /**
  * User Logout Controller
  * @param req - Express request object
  * @param res - Express response object
  */
-export const logout = async (req, res) => {
+const logout = async (req, res) => {
     try {
         // Mark user as offline if authenticated
         if (req.user?.id) {
-            await prisma.user.update({
+            await prisma.user
+                .update({
                 where: { id: req.user.id },
                 data: {
                     isOnline: false,
                     lastSeenAt: new Date(),
                 },
-            }).catch((err) => {
+            })
+                .catch((err) => {
                 console.error("Failed to mark user offline:", err);
                 // Don't fail logout if this fails
             });
         }
         // Clear cookies
-        res.clearCookie("accessToken");
-        res.clearCookie("refreshToken");
+        // Clear cookies with same options as when they were set
+        res.clearCookie("accessToken", {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+        });
+        res.clearCookie("refreshToken", {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+        });
         const response = {
             success: true,
             message: "Logout successful",
@@ -340,12 +356,13 @@ export const logout = async (req, res) => {
         });
     }
 };
+exports.logout = logout;
 /**
  * Refresh Token Controller
  * @param req - Express request object
  * @param res - Express response object
  */
-export const refreshToken = async (req, res) => {
+const refreshToken = async (req, res) => {
     try {
         const refreshToken = req.cookies.refreshToken;
         if (!refreshToken) {
@@ -357,7 +374,7 @@ export const refreshToken = async (req, res) => {
             return;
         }
         // Verify refresh token
-        const decoded = JWTService.verifyRefreshToken(refreshToken);
+        const decoded = jwt_service_1.JWTService.verifyRefreshToken(refreshToken);
         // Find user
         const user = await prisma.user.findUnique({
             where: { id: decoded.userId },
@@ -430,12 +447,12 @@ export const refreshToken = async (req, res) => {
             return;
         }
         // Generate new tokens
-        const { accessToken, refreshToken: newRefreshToken } = JWTService.generateTokens(user.id, user.email, user.role);
+        const { accessToken, refreshToken: newRefreshToken } = jwt_service_1.JWTService.generateTokens(user.id, user.email, user.role);
         // Set new cookies
         res.cookie("accessToken", accessToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+            secure: true, // Must be true for sameSite: "none"
+            sameSite: "none", // Required for cross-origin requests (frontend on different domain)
             maxAge: 15 * 60 * 1000, // 15 minutes
         });
         res.cookie("refreshToken", newRefreshToken, {
@@ -472,12 +489,13 @@ export const refreshToken = async (req, res) => {
         });
     }
 };
+exports.refreshToken = refreshToken;
 /**
  * Get Current User Controller
  * @param req - Express request object (with user attached by auth middleware)
  * @param res - Express response object
  */
-export const getCurrentUser = async (req, res) => {
+const getCurrentUser = async (req, res) => {
     try {
         // User is already attached by auth middleware
         const user = req.user;
@@ -506,12 +524,13 @@ export const getCurrentUser = async (req, res) => {
         });
     }
 };
+exports.getCurrentUser = getCurrentUser;
 /**
  * Verify Email Controller
  * @param req - Express request object
  * @param res - Express response object
  */
-export const verifyEmail = async (req, res) => {
+const verifyEmail = async (req, res) => {
     try {
         const { token } = req.query;
         if (!token || typeof token !== "string") {
@@ -525,7 +544,7 @@ export const verifyEmail = async (req, res) => {
         // Find user with verification token
         const user = await prisma.user.findFirst({
             where: {
-                emailVerificationToken: TokenService.hashToken(token),
+                emailVerificationToken: token_service_1.TokenService.hashToken(token),
                 emailVerificationExpires: {
                     gt: new Date(),
                 },
@@ -566,7 +585,7 @@ export const verifyEmail = async (req, res) => {
         });
         // Send welcome email
         try {
-            const emailService = new EmailService();
+            const emailService = new email_service_1.EmailService();
             await emailService.sendWelcomeEmail(updatedUser.email, updatedUser.firstName, updatedUser.lastName);
         }
         catch (emailError) {
@@ -589,14 +608,15 @@ export const verifyEmail = async (req, res) => {
         });
     }
 };
+exports.verifyEmail = verifyEmail;
 /**
  * Forgot Password Controller
  * @param req - Express request object
  * @param res - Express response object
  */
-export const forgotPassword = async (req, res) => {
+const forgotPassword = async (req, res) => {
     try {
-        const validatedData = forgotPasswordSchema.parse(req.body);
+        const validatedData = validation_1.forgotPasswordSchema.parse(req.body);
         // Find user by email
         const user = await prisma.user.findUnique({
             where: { email: validatedData.email },
@@ -611,9 +631,9 @@ export const forgotPassword = async (req, res) => {
             return;
         }
         // Generate password reset token
-        const resetToken = TokenService.generatePasswordResetToken();
-        const hashedToken = TokenService.hashToken(resetToken);
-        const tokenExpires = TokenService.getPasswordResetExpiration();
+        const resetToken = token_service_1.TokenService.generatePasswordResetToken();
+        const hashedToken = token_service_1.TokenService.hashToken(resetToken);
+        const tokenExpires = token_service_1.TokenService.getPasswordResetExpiration();
         // Update user with reset token
         await prisma.user.update({
             where: { id: user.id },
@@ -625,7 +645,7 @@ export const forgotPassword = async (req, res) => {
         });
         // Send password reset email
         try {
-            const emailService = new EmailService();
+            const emailService = new email_service_1.EmailService();
             await emailService.sendPasswordResetEmail({
                 email: user.email,
                 firstName: user.firstName,
@@ -650,7 +670,7 @@ export const forgotPassword = async (req, res) => {
         res.status(200).json(response);
     }
     catch (error) {
-        if (error instanceof z.ZodError) {
+        if (error instanceof zod_1.z.ZodError) {
             res.status(400).json({
                 success: false,
                 message: "Validation failed",
@@ -667,18 +687,19 @@ export const forgotPassword = async (req, res) => {
         });
     }
 };
+exports.forgotPassword = forgotPassword;
 /**
  * Reset Password Controller
  * @param req - Express request object
  * @param res - Express response object
  */
-export const resetPassword = async (req, res) => {
+const resetPassword = async (req, res) => {
     try {
-        const validatedData = resetPasswordSchema.parse(req.body);
+        const validatedData = validation_1.resetPasswordSchema.parse(req.body);
         // Find user with valid reset token
         const user = await prisma.user.findFirst({
             where: {
-                passwordResetToken: TokenService.hashToken(validatedData.token),
+                passwordResetToken: token_service_1.TokenService.hashToken(validatedData.token),
                 passwordResetExpires: {
                     gt: new Date(),
                 },
@@ -693,7 +714,7 @@ export const resetPassword = async (req, res) => {
             return;
         }
         // Hash new password
-        const hashedPassword = await hashPassword(validatedData.password);
+        const hashedPassword = await (0, password_1.hashPassword)(validatedData.password);
         // Update user password and clear reset token
         const updatedUser = await prisma.user.update({
             where: { id: user.id },
@@ -728,7 +749,7 @@ export const resetPassword = async (req, res) => {
         res.status(200).json(response);
     }
     catch (error) {
-        if (error instanceof z.ZodError) {
+        if (error instanceof zod_1.z.ZodError) {
             res.status(400).json({
                 success: false,
                 message: "Validation failed",
@@ -745,3 +766,4 @@ export const resetPassword = async (req, res) => {
         });
     }
 };
+exports.resetPassword = resetPassword;

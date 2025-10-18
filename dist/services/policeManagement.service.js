@@ -1,6 +1,9 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
-export class PoliceManagementService {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PoliceManagementService = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
+class PoliceManagementService {
     /**
      * Create a new police officer (only by admin/headquarters)
      */
@@ -300,3 +303,4 @@ export class PoliceManagementService {
         });
     }
 }
+exports.PoliceManagementService = PoliceManagementService;

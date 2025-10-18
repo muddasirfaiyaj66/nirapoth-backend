@@ -174,6 +174,8 @@ process.on("uncaughtException", (err: Error) => {
 });
 
 // Initialize Socket.IO
+// Works on traditional servers (Render, Railway, Heroku, VPS)
+// Does NOT work on Vercel serverless
 initializeSocket(httpServer);
 
 // Start cron job to mark inactive users as offline (every 5 minutes)
@@ -181,6 +183,7 @@ setInterval(async () => {
   await markInactiveUsersOffline();
 }, 5 * 60 * 1000); // 5 minutes
 
+// Start HTTP server
 httpServer.listen(PORT, async () => {
   console.log(`🚀 Nirapoth Backend Server is running!`);
   console.log(`📍 Environment: ${config.nodeEnv}`);
@@ -193,7 +196,12 @@ httpServer.listen(PORT, async () => {
   console.log(`⚙️  Admin API: http://localhost:${PORT}/api/admin`);
 
   // Run database initialization and seeding
-  console.log("\n" + "=".repeat(50));
-  await SeedService.runStartupSeeding();
-  console.log("=".repeat(50) + "\n");
+  if (config.nodeEnv === "production") {
+    console.log("\n" + "=".repeat(50));
+    await SeedService.runStartupSeeding();
+    console.log("=".repeat(50) + "\n");
+  }
 });
+
+// Also export as default for ES modules
+export default app;

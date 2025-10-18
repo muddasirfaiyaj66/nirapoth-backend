@@ -1,4 +1,9 @@
-import VehicleService from "../services/vehicle.service";
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const vehicle_service_1 = __importDefault(require("../services/vehicle.service"));
 class VehicleController {
     /**
      * Create a new vehicle (Citizen only)
@@ -23,7 +28,7 @@ class VehicleController {
                 });
                 return;
             }
-            const vehicle = await VehicleService.createVehicle({
+            const vehicle = await vehicle_service_1.default.createVehicle({
                 type: type,
                 plateNo,
                 brand,
@@ -67,7 +72,7 @@ class VehicleController {
                 });
                 return;
             }
-            const vehicles = await VehicleService.getVehiclesByUserId(userId);
+            const vehicles = await vehicle_service_1.default.getVehiclesByUserId(userId);
             res.status(200).json({
                 success: true,
                 data: vehicles,
@@ -88,7 +93,7 @@ class VehicleController {
     async getVehicleById(req, res) {
         try {
             const { id } = req.params;
-            const vehicle = await VehicleService.getVehicleById(id);
+            const vehicle = await vehicle_service_1.default.getVehicleById(id);
             if (!vehicle) {
                 res.status(404).json({
                     success: false,
@@ -116,7 +121,7 @@ class VehicleController {
     async getVehicleByPlateNo(req, res) {
         try {
             const { plateNo } = req.params;
-            const vehicle = await VehicleService.getVehicleByPlateNo(plateNo);
+            const vehicle = await vehicle_service_1.default.getVehicleByPlateNo(plateNo);
             if (!vehicle) {
                 res.status(404).json({
                     success: false,
@@ -153,7 +158,7 @@ class VehicleController {
                 return;
             }
             const { type, brand, model, year, color, expiresAt, isActive } = req.body;
-            const vehicle = await VehicleService.updateVehicle(id, userId, {
+            const vehicle = await vehicle_service_1.default.updateVehicle(id, userId, {
                 type,
                 brand,
                 model,
@@ -191,7 +196,7 @@ class VehicleController {
                 });
                 return;
             }
-            await VehicleService.deleteVehicle(id, userId);
+            await vehicle_service_1.default.deleteVehicle(id, userId);
             res.status(200).json({
                 success: true,
                 message: "Vehicle deleted successfully",
@@ -212,7 +217,7 @@ class VehicleController {
     async getVehicleStats(req, res) {
         try {
             const { id } = req.params;
-            const stats = await VehicleService.getVehicleStats(id);
+            const stats = await vehicle_service_1.default.getVehicleStats(id);
             res.status(200).json({
                 success: true,
                 data: stats,
@@ -250,7 +255,7 @@ class VehicleController {
                 });
                 return;
             }
-            const vehicles = await VehicleService.searchVehicles(q, limit ? parseInt(limit) : 10);
+            const vehicles = await vehicle_service_1.default.searchVehicles(q, limit ? parseInt(limit) : 10);
             res.status(200).json({
                 success: true,
                 data: vehicles,
@@ -265,4 +270,4 @@ class VehicleController {
         }
     }
 }
-export default new VehicleController();
+exports.default = new VehicleController();

@@ -1,33 +1,36 @@
-import { PrismaClient } from "@prisma/client";
-import { z } from "zod";
-const prisma = new PrismaClient();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ViolationController = void 0;
+const client_1 = require("@prisma/client");
+const zod_1 = require("zod");
+const prisma = new client_1.PrismaClient();
 // Validation schemas
-const createViolationSchema = z.object({
-    ruleId: z.string().uuid("Invalid rule ID"),
-    vehicleId: z.string().uuid("Invalid vehicle ID"),
-    locationId: z.string().uuid("Invalid location ID").optional(),
-    description: z.string().optional(),
-    evidenceUrl: z.string().url("Invalid evidence URL").optional(),
+const createViolationSchema = zod_1.z.object({
+    ruleId: zod_1.z.string().uuid("Invalid rule ID"),
+    vehicleId: zod_1.z.string().uuid("Invalid vehicle ID"),
+    locationId: zod_1.z.string().uuid("Invalid location ID").optional(),
+    description: zod_1.z.string().optional(),
+    evidenceUrl: zod_1.z.string().url("Invalid evidence URL").optional(),
 });
-const updateViolationStatusSchema = z.object({
-    status: z.enum(["PENDING", "CONFIRMED", "DISPUTED", "RESOLVED"]),
-    notes: z.string().optional(),
+const updateViolationStatusSchema = zod_1.z.object({
+    status: zod_1.z.enum(["PENDING", "CONFIRMED", "DISPUTED", "RESOLVED"]),
+    notes: zod_1.z.string().optional(),
 });
-const createFineSchema = z.object({
-    violationId: z.string().uuid("Invalid violation ID"),
-    amount: z.number().min(0, "Amount must be positive"),
-    dueDate: z
+const createFineSchema = zod_1.z.object({
+    violationId: zod_1.z.string().uuid("Invalid violation ID"),
+    amount: zod_1.z.number().min(0, "Amount must be positive"),
+    dueDate: zod_1.z
         .string()
         .transform((str) => new Date(str))
         .optional(),
 });
-const createRuleSchema = z.object({
-    code: z.string().min(1, "Rule code is required"),
-    title: z.string().min(1, "Rule title is required"),
-    description: z.string().min(1, "Rule description is required"),
-    penalty: z.number().min(0, "Penalty must be positive").optional(),
+const createRuleSchema = zod_1.z.object({
+    code: zod_1.z.string().min(1, "Rule code is required"),
+    title: zod_1.z.string().min(1, "Rule title is required"),
+    description: zod_1.z.string().min(1, "Rule description is required"),
+    penalty: zod_1.z.number().min(0, "Penalty must be positive").optional(),
 });
-export class ViolationController {
+class ViolationController {
     /**
      * Get all violations with pagination and filtering
      */
@@ -242,7 +245,7 @@ export class ViolationController {
         }
         catch (error) {
             console.error("Error creating violation:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -311,7 +314,7 @@ export class ViolationController {
         }
         catch (error) {
             console.error("Error updating violation status:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -373,7 +376,7 @@ export class ViolationController {
         }
         catch (error) {
             console.error("Error creating fine:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -445,7 +448,7 @@ export class ViolationController {
         }
         catch (error) {
             console.error("Error creating rule:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -468,14 +471,14 @@ export class ViolationController {
     static async updateRule(req, res) {
         try {
             const { ruleId } = req.params;
-            const updateRuleSchema = z.object({
-                title: z.string().min(1, "Rule title is required").optional(),
-                description: z
+            const updateRuleSchema = zod_1.z.object({
+                title: zod_1.z.string().min(1, "Rule title is required").optional(),
+                description: zod_1.z
                     .string()
                     .min(1, "Rule description is required")
                     .optional(),
-                penalty: z.number().min(0, "Penalty must be positive").optional(),
-                isActive: z.boolean().optional(),
+                penalty: zod_1.z.number().min(0, "Penalty must be positive").optional(),
+                isActive: zod_1.z.boolean().optional(),
             });
             const validatedData = updateRuleSchema.parse(req.body);
             // Check if rule exists
@@ -504,7 +507,7 @@ export class ViolationController {
         }
         catch (error) {
             console.error("Error updating rule:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -617,3 +620,4 @@ export class ViolationController {
         }
     }
 }
+exports.ViolationController = ViolationController;

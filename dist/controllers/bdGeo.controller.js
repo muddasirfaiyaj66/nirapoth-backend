@@ -1,11 +1,14 @@
-import { getAllDivisions, getDistrictsByDivision, getAllDistricts, getUpazilasByDistrict, getAllUpazilas, searchLocations, populateAllBDGeoData, } from "../services/bdGeo.service";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.populateGeoData = exports.searchGeoLocations = exports.getUpazilas = exports.getDistricts = exports.getDivisions = void 0;
+const bdGeo_service_1 = require("../services/bdGeo.service");
 /**
  * Get all divisions
  * GET /api/bd-geo/divisions
  */
-export const getDivisions = async (req, res) => {
+const getDivisions = async (req, res) => {
     try {
-        const divisions = await getAllDivisions();
+        const divisions = await (0, bdGeo_service_1.getAllDivisions)();
         const response = {
             success: true,
             message: "Divisions retrieved successfully",
@@ -24,17 +27,18 @@ export const getDivisions = async (req, res) => {
         res.status(500).json(errorResponse);
     }
 };
+exports.getDivisions = getDivisions;
 /**
  * Get districts by division ID or all districts
  * GET /api/bd-geo/districts
  * GET /api/bd-geo/districts?divisionId=6
  */
-export const getDistricts = async (req, res) => {
+const getDistricts = async (req, res) => {
     try {
         const { divisionId } = req.query;
         const districts = divisionId
-            ? await getDistrictsByDivision(divisionId)
-            : await getAllDistricts();
+            ? await (0, bdGeo_service_1.getDistrictsByDivision)(divisionId)
+            : await (0, bdGeo_service_1.getAllDistricts)();
         const response = {
             success: true,
             message: "Districts retrieved successfully",
@@ -53,17 +57,18 @@ export const getDistricts = async (req, res) => {
         res.status(500).json(errorResponse);
     }
 };
+exports.getDistricts = getDistricts;
 /**
  * Get upazilas by district ID or all upazilas
  * GET /api/bd-geo/upazilas
  * GET /api/bd-geo/upazilas?districtId=47
  */
-export const getUpazilas = async (req, res) => {
+const getUpazilas = async (req, res) => {
     try {
         const { districtId } = req.query;
         const upazilas = districtId
-            ? await getUpazilasByDistrict(districtId)
-            : await getAllUpazilas();
+            ? await (0, bdGeo_service_1.getUpazilasByDistrict)(districtId)
+            : await (0, bdGeo_service_1.getAllUpazilas)();
         const response = {
             success: true,
             message: "Upazilas retrieved successfully",
@@ -82,11 +87,12 @@ export const getUpazilas = async (req, res) => {
         res.status(500).json(errorResponse);
     }
 };
+exports.getUpazilas = getUpazilas;
 /**
  * Search locations (divisions, districts, upazilas)
  * GET /api/bd-geo/search?q=dhaka
  */
-export const searchGeoLocations = async (req, res) => {
+const searchGeoLocations = async (req, res) => {
     try {
         const { q } = req.query;
         if (!q || typeof q !== "string") {
@@ -98,7 +104,7 @@ export const searchGeoLocations = async (req, res) => {
             res.status(400).json(errorResponse);
             return;
         }
-        const results = await searchLocations(q);
+        const results = await (0, bdGeo_service_1.searchLocations)(q);
         const response = {
             success: true,
             message: "Search results retrieved successfully",
@@ -117,14 +123,15 @@ export const searchGeoLocations = async (req, res) => {
         res.status(500).json(errorResponse);
     }
 };
+exports.searchGeoLocations = searchGeoLocations;
 /**
  * Populate BD geographical data (Admin only)
  * POST /api/bd-geo/populate
  */
-export const populateGeoData = async (req, res) => {
+const populateGeoData = async (req, res) => {
     try {
         // This should be protected by admin middleware
-        await populateAllBDGeoData();
+        await (0, bdGeo_service_1.populateAllBDGeoData)();
         const response = {
             success: true,
             message: "BD geographical data populated successfully",
@@ -142,3 +149,4 @@ export const populateGeoData = async (req, res) => {
         res.status(500).json(errorResponse);
     }
 };
+exports.populateGeoData = populateGeoData;

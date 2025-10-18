@@ -19,6 +19,10 @@ export function initializeSocket(httpServer: HTTPServer): SocketIOServer {
       methods: ["GET", "POST"],
       credentials: true,
     },
+    // Prioritize polling for Vercel compatibility (Hobby plan doesn't support WebSockets)
+    transports: ["polling", "websocket"],
+    // Allow upgrade to websocket if available (won't work on Vercel Hobby, but will try)
+    allowUpgrades: true,
     pingTimeout: 60000,
     pingInterval: 25000,
   });

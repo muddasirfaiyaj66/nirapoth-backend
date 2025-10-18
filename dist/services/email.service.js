@@ -1,18 +1,24 @@
-import nodemailer from "nodemailer";
-import { config } from "../config/env";
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.EmailService = void 0;
+const nodemailer_1 = __importDefault(require("nodemailer"));
+const env_1 = require("../config/env");
 /**
  * Email Service for sending various types of emails
  */
-export class EmailService {
+class EmailService {
     transporter;
     constructor() {
-        this.transporter = nodemailer.createTransport({
-            host: config.email.smtpHost,
-            port: config.email.smtpPort,
-            secure: config.email.smtpSecure,
+        this.transporter = nodemailer_1.default.createTransport({
+            host: env_1.config.email.smtpHost,
+            port: env_1.config.email.smtpPort,
+            secure: env_1.config.email.smtpSecure,
             auth: {
-                user: config.email.smtpUser,
-                pass: config.email.smtpPass,
+                user: env_1.config.email.smtpUser,
+                pass: env_1.config.email.smtpPass,
             },
         });
     }
@@ -23,7 +29,7 @@ export class EmailService {
     async sendEmail(options) {
         try {
             const mailOptions = {
-                from: `"${config.email.fromName}" <${config.email.fromEmail}>`,
+                from: `"${env_1.config.email.fromName}" <${env_1.config.email.fromEmail}>`,
                 to: options.to,
                 subject: options.subject,
                 html: options.html,
@@ -42,7 +48,7 @@ export class EmailService {
      * @param data - Verification email data
      */
     async sendVerificationEmail(data) {
-        const verificationUrl = `${config.email.baseUrl}/verify-email?token=${data.verificationToken}`;
+        const verificationUrl = `${env_1.config.email.baseUrl}/verify-email?token=${data.verificationToken}`;
         const html = `
       <!DOCTYPE html>
       <html>
@@ -100,7 +106,7 @@ export class EmailService {
      * @param data - Password reset email data
      */
     async sendPasswordResetEmail(data) {
-        const resetUrl = `${config.email.baseUrl}/reset-password?token=${data.resetToken}`;
+        const resetUrl = `${env_1.config.email.baseUrl}/reset-password?token=${data.resetToken}`;
         const html = `
       <!DOCTYPE html>
       <html>
@@ -522,7 +528,7 @@ export class EmailService {
 
       <!-- Call to Action -->
       <div style="text-align: center;">
-        <a href="${config.email.baseUrl}/dashboard" class="button">
+        <a href="${env_1.config.email.baseUrl}/dashboard" class="button">
           View Dashboard
         </a>
       </div>
@@ -542,9 +548,9 @@ export class EmailService {
       </p>
       
       <div class="social-links">
-        <a href="${config.email.baseUrl}" class="social-link">Website</a> |
+        <a href="${env_1.config.email.baseUrl}" class="social-link">Website</a> |
         <a href="mailto:support@nirapoth.com" class="social-link">Support</a> |
-        <a href="${config.email.baseUrl}/privacy" class="social-link">Privacy Policy</a>
+        <a href="${env_1.config.email.baseUrl}/privacy" class="social-link">Privacy Policy</a>
       </div>
 
       <p class="footer-text" style="font-size: 12px; margin-top: 20px;">
@@ -822,7 +828,7 @@ export class EmailService {
 
       <!-- Call to Action -->
       <div style="text-align: center;">
-        <a href="${config.email.baseUrl}/dashboard/citizen/rewards" class="button">
+        <a href="${env_1.config.email.baseUrl}/dashboard/citizen/rewards" class="button">
           View My Balance
         </a>
       </div>
@@ -862,3 +868,4 @@ export class EmailService {
         });
     }
 }
+exports.EmailService = EmailService;

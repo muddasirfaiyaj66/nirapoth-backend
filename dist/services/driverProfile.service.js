@@ -1,6 +1,9 @@
-import { PrismaClient, DriverStatus } from "@prisma/client";
-const prisma = new PrismaClient();
-export class DriverProfileService {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DriverProfileService = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
+class DriverProfileService {
     /**
      * Create a new driver profile
      */
@@ -212,7 +215,7 @@ export class DriverProfileService {
      */
     static async searchDrivers(filters) {
         const where = {
-            status: DriverStatus.AVAILABLE,
+            status: client_1.DriverStatus.AVAILABLE,
             user: {
                 isActive: true,
                 isBlocked: false,
@@ -345,3 +348,4 @@ export class DriverProfileService {
         });
     }
 }
+exports.DriverProfileService = DriverProfileService;

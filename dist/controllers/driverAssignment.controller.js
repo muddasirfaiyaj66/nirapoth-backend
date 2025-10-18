@@ -1,19 +1,22 @@
-import { DriverAssignmentService } from "../services/driverAssignment.service";
-import { NotificationService } from "../services/notification.service";
-export const createAssignment = async (req, res) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getDriverAssignments = exports.getVehicleAssignments = exports.getAssignment = exports.getMyAssignments = exports.terminateAssignment = exports.resignFromAssignment = exports.rejectAssignment = exports.acceptAssignment = exports.createAssignment = void 0;
+const driverAssignment_service_1 = require("../services/driverAssignment.service");
+const notification_service_1 = require("../services/notification.service");
+const createAssignment = async (req, res) => {
     try {
         const ownerId = req.user?.id;
         if (!ownerId) {
             res.status(401).json({ success: false, message: "Unauthorized" });
             return;
         }
-        const assignment = await DriverAssignmentService.createAssignment({
+        const assignment = await driverAssignment_service_1.DriverAssignmentService.createAssignment({
             ...req.body,
             ownerId,
         });
         // Send notification to driver
         const ownerName = `${assignment.owner.firstName} ${assignment.owner.lastName}`;
-        await NotificationService.notifyVehicleAssignmentCreated(assignment.driverId, ownerName, assignment.vehicle.plateNo, assignment.id).catch((err) => console.error("Failed to send notification:", err));
+        await notification_service_1.NotificationService.notifyVehicleAssignmentCreated(assignment.driverId, ownerName, assignment.vehicle.plateNo, assignment.id).catch((err) => console.error("Failed to send notification:", err));
         res.status(201).json({
             success: true,
             message: "Driver assignment created successfully",
@@ -28,7 +31,8 @@ export const createAssignment = async (req, res) => {
         });
     }
 };
-export const acceptAssignment = async (req, res) => {
+exports.createAssignment = createAssignment;
+const acceptAssignment = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -36,10 +40,10 @@ export const acceptAssignment = async (req, res) => {
             return;
         }
         const { id } = req.params;
-        const assignment = await DriverAssignmentService.acceptAssignment(id, userId);
+        const assignment = await driverAssignment_service_1.DriverAssignmentService.acceptAssignment(id, userId);
         // Send notification to owner
         const driverName = `${assignment.driver.firstName} ${assignment.driver.lastName}`;
-        await NotificationService.notifyAssignmentAccepted(assignment.ownerId, driverName, assignment.vehicle.plateNo, assignment.id).catch((err) => console.error("Failed to send notification:", err));
+        await notification_service_1.NotificationService.notifyAssignmentAccepted(assignment.ownerId, driverName, assignment.vehicle.plateNo, assignment.id).catch((err) => console.error("Failed to send notification:", err));
         res.status(200).json({
             success: true,
             message: "Assignment accepted successfully",
@@ -54,7 +58,8 @@ export const acceptAssignment = async (req, res) => {
         });
     }
 };
-export const rejectAssignment = async (req, res) => {
+exports.acceptAssignment = acceptAssignment;
+const rejectAssignment = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -62,10 +67,10 @@ export const rejectAssignment = async (req, res) => {
             return;
         }
         const { id } = req.params;
-        const assignment = await DriverAssignmentService.rejectAssignment(id, userId);
+        const assignment = await driverAssignment_service_1.DriverAssignmentService.rejectAssignment(id, userId);
         // Send notification to owner
         const driverName = `${assignment.driver.firstName} ${assignment.driver.lastName}`;
-        await NotificationService.notifyAssignmentRejected(assignment.ownerId, driverName, assignment.vehicle.plateNo).catch((err) => console.error("Failed to send notification:", err));
+        await notification_service_1.NotificationService.notifyAssignmentRejected(assignment.ownerId, driverName, assignment.vehicle.plateNo).catch((err) => console.error("Failed to send notification:", err));
         res.status(200).json({
             success: true,
             message: "Assignment rejected successfully",
@@ -80,7 +85,8 @@ export const rejectAssignment = async (req, res) => {
         });
     }
 };
-export const resignFromAssignment = async (req, res) => {
+exports.rejectAssignment = rejectAssignment;
+const resignFromAssignment = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -88,10 +94,10 @@ export const resignFromAssignment = async (req, res) => {
             return;
         }
         const { id } = req.params;
-        const assignment = await DriverAssignmentService.resignFromAssignment(id, userId);
+        const assignment = await driverAssignment_service_1.DriverAssignmentService.resignFromAssignment(id, userId);
         // Send notification to owner
         const driverName = `${assignment.driver.firstName} ${assignment.driver.lastName}`;
-        await NotificationService.notifyDriverResigned(assignment.ownerId, driverName, assignment.vehicle.plateNo, assignment.id).catch((err) => console.error("Failed to send notification:", err));
+        await notification_service_1.NotificationService.notifyDriverResigned(assignment.ownerId, driverName, assignment.vehicle.plateNo, assignment.id).catch((err) => console.error("Failed to send notification:", err));
         res.status(200).json({
             success: true,
             message: "Resigned from assignment successfully",
@@ -106,7 +112,8 @@ export const resignFromAssignment = async (req, res) => {
         });
     }
 };
-export const terminateAssignment = async (req, res) => {
+exports.resignFromAssignment = resignFromAssignment;
+const terminateAssignment = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -114,10 +121,10 @@ export const terminateAssignment = async (req, res) => {
             return;
         }
         const { id } = req.params;
-        const assignment = await DriverAssignmentService.terminateAssignment(id, userId);
+        const assignment = await driverAssignment_service_1.DriverAssignmentService.terminateAssignment(id, userId);
         // Send notification to driver
         const ownerName = `${assignment.owner.firstName} ${assignment.owner.lastName}`;
-        await NotificationService.notifyAssignmentTerminated(assignment.driverId, ownerName, assignment.vehicle.plateNo).catch((err) => console.error("Failed to send notification:", err));
+        await notification_service_1.NotificationService.notifyAssignmentTerminated(assignment.driverId, ownerName, assignment.vehicle.plateNo).catch((err) => console.error("Failed to send notification:", err));
         res.status(200).json({
             success: true,
             message: "Assignment terminated successfully",
@@ -132,14 +139,15 @@ export const terminateAssignment = async (req, res) => {
         });
     }
 };
-export const getMyAssignments = async (req, res) => {
+exports.terminateAssignment = terminateAssignment;
+const getMyAssignments = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
             res.status(401).json({ success: false, message: "Unauthorized" });
             return;
         }
-        const assignments = await DriverAssignmentService.getMyAssignments(userId);
+        const assignments = await driverAssignment_service_1.DriverAssignmentService.getMyAssignments(userId);
         res.status(200).json({
             success: true,
             data: assignments,
@@ -153,7 +161,8 @@ export const getMyAssignments = async (req, res) => {
         });
     }
 };
-export const getAssignment = async (req, res) => {
+exports.getMyAssignments = getMyAssignments;
+const getAssignment = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -161,7 +170,7 @@ export const getAssignment = async (req, res) => {
             return;
         }
         const { id } = req.params;
-        const assignment = await DriverAssignmentService.getAssignment(id, userId);
+        const assignment = await driverAssignment_service_1.DriverAssignmentService.getAssignment(id, userId);
         res.status(200).json({
             success: true,
             data: assignment,
@@ -177,7 +186,8 @@ export const getAssignment = async (req, res) => {
         });
     }
 };
-export const getVehicleAssignments = async (req, res) => {
+exports.getAssignment = getAssignment;
+const getVehicleAssignments = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -185,7 +195,7 @@ export const getVehicleAssignments = async (req, res) => {
             return;
         }
         const { vehicleId } = req.params;
-        const assignments = await DriverAssignmentService.getVehicleAssignments(vehicleId, userId);
+        const assignments = await driverAssignment_service_1.DriverAssignmentService.getVehicleAssignments(vehicleId, userId);
         res.status(200).json({
             success: true,
             count: assignments.length,
@@ -204,10 +214,11 @@ export const getVehicleAssignments = async (req, res) => {
         });
     }
 };
-export const getDriverAssignments = async (req, res) => {
+exports.getVehicleAssignments = getVehicleAssignments;
+const getDriverAssignments = async (req, res) => {
     try {
         const { driverId } = req.params;
-        const assignments = await DriverAssignmentService.getDriverAssignments(driverId);
+        const assignments = await driverAssignment_service_1.DriverAssignmentService.getDriverAssignments(driverId);
         res.status(200).json({
             success: true,
             count: assignments.length,
@@ -222,3 +233,4 @@ export const getDriverAssignments = async (req, res) => {
         });
     }
 };
+exports.getDriverAssignments = getDriverAssignments;

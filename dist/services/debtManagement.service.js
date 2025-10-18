@@ -1,12 +1,15 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DebtManagementService = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
 /**
  * Service to manage outstanding debts and late payment penalties
  * - Tracks negative balances as debts
  * - Applies 2.5% late fee per week after 7 days
  * - Handles debt payments and status updates
  */
-export class DebtManagementService {
+class DebtManagementService {
     /**
      * Create an outstanding debt for a user with negative balance
      */
@@ -277,3 +280,4 @@ export class DebtManagementService {
         return null;
     }
 }
+exports.DebtManagementService = DebtManagementService;

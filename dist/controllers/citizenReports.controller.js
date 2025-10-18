@@ -1,6 +1,9 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
-export class CitizenReportsController {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CitizenReportsController = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
+class CitizenReportsController {
     // Get my reports (for citizens)
     static async getMyReports(req, res) {
         try {
@@ -688,3 +691,4 @@ export class CitizenReportsController {
         }
     }
 }
+exports.CitizenReportsController = CitizenReportsController;

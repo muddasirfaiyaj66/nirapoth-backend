@@ -1,10 +1,16 @@
-import helmet from "helmet";
-import cors from "cors";
-import { config } from "../config/env";
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.canManageTargetUser = exports.adminOnly = exports.canAssignRole = exports.canManageUser = exports.responseTimeHeader = exports.requestSizeLimiter = exports.requestLogger = exports.securityMiddleware = exports.helmetOptions = exports.corsMiddleware = exports.corsOptions = void 0;
+const helmet_1 = __importDefault(require("helmet"));
+const cors_1 = __importDefault(require("cors"));
+const env_1 = require("../config/env");
 /**
  * CORS configuration
  */
-export const corsOptions = {
+exports.corsOptions = {
     origin: (origin, callback) => {
         // Allow requests with no origin (mobile apps, curl, etc.)
         if (!origin) {
@@ -15,7 +21,7 @@ export const corsOptions = {
             return callback(null, true);
         }
         const allowedOrigins = [
-            config.cors.origin,
+            env_1.config.cors.origin,
             process.env.FRONTEND_URL,
             "http://localhost:3000",
             "http://127.0.0.1:3000",
@@ -28,9 +34,14 @@ export const corsOptions = {
             // SSLCommerz callback origins
             "https://sandbox.sslcommerz.com",
             "https://securepay.sslcommerz.com",
+            // Vercel preview deployments
+            "https://nirapoth.vercel.app",
+            "https://nirapoth-web.vercel.app",
         ].filter(Boolean);
-        // Allow exact matches or any *.sslcommerz.com origin (gateway callbacks)
-        if (allowedOrigins.includes(origin) || origin.includes("sslcommerz.com")) {
+        // Allow exact matches, Vercel preview URLs, or SSLCommerz origins
+        if (allowedOrigins.includes(origin) ||
+            origin.includes("sslcommerz.com") ||
+            (origin.includes("nirapoth") && origin.includes("vercel.app"))) {
             callback(null, true);
         }
         else {
@@ -48,16 +59,23 @@ export const corsOptions = {
         "Authorization",
         "Cache-Control",
         "Pragma",
+        "X-Auth-Token",
+    ],
+    exposedHeaders: [
+        "Authorization",
+        "X-Auth-Token",
+        "X-Response-Time",
+        "Set-Cookie",
     ],
 };
 /**
  * CORS middleware
  */
-export const corsMiddleware = cors(corsOptions);
+exports.corsMiddleware = (0, cors_1.default)(exports.corsOptions);
 /**
  * Helmet configuration for security headers
  */
-export const helmetOptions = {
+exports.helmetOptions = {
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
@@ -71,14 +89,14 @@ export const helmetOptions = {
 /**
  * Security middleware using Helmet
  */
-export const securityMiddleware = helmet(helmetOptions);
+exports.securityMiddleware = (0, helmet_1.default)(exports.helmetOptions);
 /**
  * Request logging middleware
  * @param req - Express request object
  * @param res - Express response object
  * @param next - Express next function
  */
-export const requestLogger = (req, res, next) => {
+const requestLogger = (req, res, next) => {
     const start = Date.now();
     res.on("finish", () => {
         const duration = Date.now() - start;
@@ -95,13 +113,14 @@ export const requestLogger = (req, res, next) => {
     });
     next();
 };
+exports.requestLogger = requestLogger;
 /**
  * Request size limiter middleware
  * @param req - Express request object
  * @param res - Express response object
  * @param next - Express next function
  */
-export const requestSizeLimiter = (req, res, next) => {
+const requestSizeLimiter = (req, res, next) => {
     const contentLength = parseInt(req.get("content-length") || "0", 10);
     // Increased to 150MB to handle base64-encoded files (temporary until Cloudinary is set up)
     // Base64 encoding increases file size by ~33% (100MB video → ~133MB)
@@ -116,13 +135,14 @@ export const requestSizeLimiter = (req, res, next) => {
     }
     next();
 };
+exports.requestSizeLimiter = requestSizeLimiter;
 /**
  * Response time header middleware
  * @param req - Express request object
  * @param res - Express response object
  * @param next - Express next function
  */
-export const responseTimeHeader = (req, res, next) => {
+const responseTimeHeader = (req, res, next) => {
     const start = Date.now();
     // Override the end method to set header before sending response
     const originalEnd = res.end.bind(res);
@@ -133,6 +153,7 @@ export const responseTimeHeader = (req, res, next) => {
     };
     next();
 };
+exports.responseTimeHeader = responseTimeHeader;
 // Define role hierarchy (higher number = higher privilege)
 const ROLE_HIERARCHY = {
     SUPER_ADMIN: 100,
@@ -144,7 +165,7 @@ const ROLE_HIERARCHY = {
 /**
  * Check if a user can manage another user based on role hierarchy
  */
-export const canManageUser = (managerRole, targetRole) => {
+const canManageUser = (managerRole, targetRole) => {
     const managerLevel = ROLE_HIERARCHY[managerRole];
     const targetLevel = ROLE_HIERARCHY[targetRole];
     // Only SUPER_ADMIN can manage other SUPER_ADMINs
@@ -153,10 +174,11 @@ export const canManageUser = (managerRole, targetRole) => {
     }
     return managerLevel >= targetLevel;
 };
+exports.canManageUser = canManageUser;
 /**
  * Check if a user can assign a specific role to another user
  */
-export const canAssignRole = (managerRole, roleToAssign) => {
+const canAssignRole = (managerRole, roleToAssign) => {
     const managerLevel = ROLE_HIERARCHY[managerRole];
     const roleLevel = ROLE_HIERARCHY[roleToAssign];
     // Only SUPER_ADMIN can assign SUPER_ADMIN role
@@ -166,11 +188,12 @@ export const canAssignRole = (managerRole, roleToAssign) => {
     // Manager can assign roles at their level or below
     return managerLevel > roleLevel;
 };
+exports.canAssignRole = canAssignRole;
 /**
  * Admin-only access middleware
  * Ensures only users with ADMIN or SUPER_ADMIN role can access the route
  */
-export const adminOnly = (req, res, next) => {
+const adminOnly = (req, res, next) => {
     const userRole = req.userRole;
     if (!userRole) {
         res.status(401).json({
@@ -190,11 +213,12 @@ export const adminOnly = (req, res, next) => {
     }
     next();
 };
+exports.adminOnly = adminOnly;
 /**
  * Middleware to check if user can manage target user
  * Used for user management operations (block, delete, update)
  */
-export const canManageTargetUser = (req, res, next) => {
+const canManageTargetUser = (req, res, next) => {
     const userRole = req.userRole;
     const targetUserRole = req.body.targetRole || req.params.targetRole;
     if (!userRole) {
@@ -213,7 +237,7 @@ export const canManageTargetUser = (req, res, next) => {
         });
         return;
     }
-    if (!canManageUser(userRole, targetUserRole)) {
+    if (!(0, exports.canManageUser)(userRole, targetUserRole)) {
         res.status(403).json({
             success: false,
             message: "You don't have permission to manage this user",
@@ -223,3 +247,4 @@ export const canManageTargetUser = (req, res, next) => {
     }
     next();
 };
+exports.canManageTargetUser = canManageTargetUser;

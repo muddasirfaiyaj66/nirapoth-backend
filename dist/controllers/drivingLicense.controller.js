@@ -1,4 +1,9 @@
-import DrivingLicenseService from "../services/drivingLicense.service";
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const drivingLicense_service_1 = __importDefault(require("../services/drivingLicense.service"));
 class DrivingLicenseController {
     /**
      * Create a new driving license (Citizen only)
@@ -27,7 +32,7 @@ class DrivingLicenseController {
                 });
                 return;
             }
-            const license = await DrivingLicenseService.createLicense({
+            const license = await drivingLicense_service_1.default.createLicense({
                 licenseNo,
                 citizenId: userId,
                 category: category,
@@ -65,7 +70,7 @@ class DrivingLicenseController {
                 });
                 return;
             }
-            const license = await DrivingLicenseService.getLicenseByUserId(userId);
+            const license = await drivingLicense_service_1.default.getLicenseByUserId(userId);
             if (!license) {
                 res.status(404).json({
                     success: false,
@@ -93,7 +98,7 @@ class DrivingLicenseController {
     async getLicenseById(req, res) {
         try {
             const { id } = req.params;
-            const license = await DrivingLicenseService.getLicenseById(id);
+            const license = await drivingLicense_service_1.default.getLicenseById(id);
             if (!license) {
                 res.status(404).json({
                     success: false,
@@ -121,7 +126,7 @@ class DrivingLicenseController {
     async getLicenseByLicenseNo(req, res) {
         try {
             const { licenseNo } = req.params;
-            const license = await DrivingLicenseService.getLicenseByLicenseNo(licenseNo);
+            const license = await drivingLicense_service_1.default.getLicenseByLicenseNo(licenseNo);
             if (!license) {
                 res.status(404).json({
                     success: false,
@@ -158,7 +163,7 @@ class DrivingLicenseController {
                 return;
             }
             // Verify ownership
-            const existingLicense = await DrivingLicenseService.getLicenseById(id);
+            const existingLicense = await drivingLicense_service_1.default.getLicenseById(id);
             if (!existingLicense || existingLicense.citizenId !== userId) {
                 res.status(403).json({
                     success: false,
@@ -167,7 +172,7 @@ class DrivingLicenseController {
                 return;
             }
             const { category, expiryDate, restrictions, endorsements, isActive } = req.body;
-            const updatedLicense = await DrivingLicenseService.updateLicense(id, {
+            const updatedLicense = await drivingLicense_service_1.default.updateLicense(id, {
                 category,
                 expiryDate: expiryDate ? new Date(expiryDate) : undefined,
                 restrictions,
@@ -212,7 +217,7 @@ class DrivingLicenseController {
                 });
                 return;
             }
-            const result = await DrivingLicenseService.deductGems({
+            const result = await drivingLicense_service_1.default.deductGems({
                 licenseId: id,
                 gemsToDeduct: parseInt(gemsToDeduct),
                 reason,
@@ -247,7 +252,7 @@ class DrivingLicenseController {
     async checkValidity(req, res) {
         try {
             const { id } = req.params;
-            const validity = await DrivingLicenseService.isLicenseValid(id);
+            const validity = await drivingLicense_service_1.default.isLicenseValid(id);
             res.status(200).json({
                 success: true,
                 data: validity,
@@ -277,7 +282,7 @@ class DrivingLicenseController {
                 });
                 return;
             }
-            const blacklistedLicenses = await DrivingLicenseService.getBlacklistedLicenses();
+            const blacklistedLicenses = await drivingLicense_service_1.default.getBlacklistedLicenses();
             res.status(200).json({
                 success: true,
                 data: blacklistedLicenses,
@@ -307,7 +312,7 @@ class DrivingLicenseController {
                 return;
             }
             // Verify ownership
-            const license = await DrivingLicenseService.getLicenseById(id);
+            const license = await drivingLicense_service_1.default.getLicenseById(id);
             if (!license || license.citizenId !== userId) {
                 res.status(403).json({
                     success: false,
@@ -315,7 +320,7 @@ class DrivingLicenseController {
                 });
                 return;
             }
-            await DrivingLicenseService.payBlacklistPenalty(id);
+            await drivingLicense_service_1.default.payBlacklistPenalty(id);
             res.status(200).json({
                 success: true,
                 message: "Blacklist penalty paid successfully. You may now reapply for your driving test.",
@@ -330,4 +335,4 @@ class DrivingLicenseController {
         }
     }
 }
-export default new DrivingLicenseController();
+exports.default = new DrivingLicenseController();

@@ -1,20 +1,23 @@
-import { z } from "zod";
-import { VehicleAssignmentService } from "../services/vehicleAssignment.service";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.VehicleAssignmentController = void 0;
+const zod_1 = require("zod");
+const vehicleAssignment_service_1 = require("../services/vehicleAssignment.service");
 // Validation schemas
-const assignDriverSchema = z.object({
-    citizenId: z.string().uuid("Invalid citizen ID"),
-    validFrom: z
+const assignDriverSchema = zod_1.z.object({
+    citizenId: zod_1.z.string().uuid("Invalid citizen ID"),
+    validFrom: zod_1.z
         .string()
         .optional()
         .transform((str) => (str ? new Date(str) : undefined)),
-    validUntil: z
+    validUntil: zod_1.z
         .string()
         .optional()
         .transform((str) => (str ? new Date(str) : undefined)),
-    notes: z.string().optional(),
-    requiresApproval: z.boolean().default(false),
+    notes: zod_1.z.string().optional(),
+    requiresApproval: zod_1.z.boolean().default(false),
 });
-export class VehicleAssignmentController {
+class VehicleAssignmentController {
     /**
      * Assign driver to vehicle with license validation
      */
@@ -31,7 +34,7 @@ export class VehicleAssignmentController {
                 });
                 return;
             }
-            const assignment = await VehicleAssignmentService.assignDriver({
+            const assignment = await vehicleAssignment_service_1.VehicleAssignmentService.assignDriver({
                 vehicleId,
                 assignedBy,
                 ...validatedData,
@@ -45,7 +48,7 @@ export class VehicleAssignmentController {
         }
         catch (error) {
             console.error("Error assigning driver:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -96,7 +99,7 @@ export class VehicleAssignmentController {
                 });
                 return;
             }
-            const assignment = await VehicleAssignmentService.unassignDriver(assignmentId, unassignedBy);
+            const assignment = await vehicleAssignment_service_1.VehicleAssignmentService.unassignDriver(assignmentId, unassignedBy);
             res.status(200).json({
                 success: true,
                 message: "Driver unassigned successfully",
@@ -120,7 +123,7 @@ export class VehicleAssignmentController {
         try {
             const { vehicleId } = req.params;
             const activeOnly = req.query.activeOnly !== "false";
-            const assignments = await VehicleAssignmentService.getVehicleAssignments(vehicleId, activeOnly);
+            const assignments = await vehicleAssignment_service_1.VehicleAssignmentService.getVehicleAssignments(vehicleId, activeOnly);
             res.status(200).json({
                 success: true,
                 message: "Vehicle assignments retrieved successfully",
@@ -152,7 +155,7 @@ export class VehicleAssignmentController {
                 });
                 return;
             }
-            const assignments = await VehicleAssignmentService.getCitizenAssignments(citizenId, activeOnly);
+            const assignments = await vehicleAssignment_service_1.VehicleAssignmentService.getCitizenAssignments(citizenId, activeOnly);
             res.status(200).json({
                 success: true,
                 message: "Citizen assignments retrieved successfully",
@@ -184,7 +187,7 @@ export class VehicleAssignmentController {
                 });
                 return;
             }
-            const assignment = await VehicleAssignmentService.approveAssignment(assignmentId, approvedBy);
+            const assignment = await vehicleAssignment_service_1.VehicleAssignmentService.approveAssignment(assignmentId, approvedBy);
             res.status(200).json({
                 success: true,
                 message: "Assignment approved successfully",
@@ -207,7 +210,7 @@ export class VehicleAssignmentController {
     static async checkDrivingEligibility(req, res) {
         try {
             const { citizenId, vehicleId } = req.params;
-            const eligibility = await VehicleAssignmentService.canDriveVehicle(citizenId, vehicleId);
+            const eligibility = await vehicleAssignment_service_1.VehicleAssignmentService.canDriveVehicle(citizenId, vehicleId);
             res.status(200).json({
                 success: true,
                 message: "Driving eligibility checked successfully",
@@ -230,7 +233,7 @@ export class VehicleAssignmentController {
     static async getExpiringAssignments(req, res) {
         try {
             const days = parseInt(req.query.days) || 7;
-            const assignments = await VehicleAssignmentService.getExpiringAssignments(days);
+            const assignments = await vehicleAssignment_service_1.VehicleAssignmentService.getExpiringAssignments(days);
             res.status(200).json({
                 success: true,
                 message: "Expiring assignments retrieved successfully",
@@ -248,3 +251,4 @@ export class VehicleAssignmentController {
         }
     }
 }
+exports.VehicleAssignmentController = VehicleAssignmentController;

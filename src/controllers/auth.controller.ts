@@ -302,15 +302,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Set HTTP-only cookies
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      secure: true, // Must be true for sameSite: "none"
+      sameSite: "none", // Required for cross-origin requests (frontend on different domain)
       maxAge: 15 * 60 * 1000, // 15 minutes
     });
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      secure: true, // Must be true for sameSite: "none"
+      sameSite: "none", // Required for cross-origin requests (frontend on different domain)
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -366,21 +366,32 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
   try {
     // Mark user as offline if authenticated
     if (req.user?.id) {
-      await prisma.user.update({
-        where: { id: req.user.id },
-        data: {
-          isOnline: false,
-          lastSeenAt: new Date(),
-        },
-      }).catch((err) => {
-        console.error("Failed to mark user offline:", err);
-        // Don't fail logout if this fails
-      });
+      await prisma.user
+        .update({
+          where: { id: req.user.id },
+          data: {
+            isOnline: false,
+            lastSeenAt: new Date(),
+          },
+        })
+        .catch((err) => {
+          console.error("Failed to mark user offline:", err);
+          // Don't fail logout if this fails
+        });
     }
 
     // Clear cookies
-    res.clearCookie("accessToken");
-    res.clearCookie("refreshToken");
+    // Clear cookies with same options as when they were set
+    res.clearCookie("accessToken", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+    });
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+    });
 
     const response: SuccessResponse = {
       success: true,
@@ -503,8 +514,8 @@ export const refreshToken = async (
     // Set new cookies
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      secure: true, // Must be true for sameSite: "none"
+      sameSite: "none", // Required for cross-origin requests (frontend on different domain)
       maxAge: 15 * 60 * 1000, // 15 minutes
     });
 

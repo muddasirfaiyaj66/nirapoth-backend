@@ -1,49 +1,51 @@
-import { Router } from "express";
-import { VehicleAssignmentController } from "../controllers/vehicleAssignment.controller";
-import { authenticateToken } from "../middlewares/auth.middleware";
-const router = Router();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const vehicleAssignment_controller_1 = require("../controllers/vehicleAssignment.controller");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const router = (0, express_1.Router)();
 // All routes require authentication
-router.use(authenticateToken);
+router.use(auth_middleware_1.authenticateToken);
 /**
  * @route POST /api/vehicle-assignment/assign
  * @desc Assign driver to vehicle
  * @access Private
  */
-router.post("/assign", VehicleAssignmentController.assignDriver);
+router.post("/assign", vehicleAssignment_controller_1.VehicleAssignmentController.assignDriver);
 /**
  * @route POST /api/vehicle-assignment/unassign
  * @desc Unassign driver from vehicle
  * @access Private
  */
-router.post("/unassign", VehicleAssignmentController.unassignDriver);
+router.post("/unassign", vehicleAssignment_controller_1.VehicleAssignmentController.unassignDriver);
 /**
  * @route GET /api/vehicle-assignment/vehicle/:vehicleId
  * @desc Get assignments for a vehicle
  * @access Private
  */
-router.get("/vehicle/:vehicleId", VehicleAssignmentController.getVehicleAssignments);
+router.get("/vehicle/:vehicleId", vehicleAssignment_controller_1.VehicleAssignmentController.getVehicleAssignments);
 /**
  * @route GET /api/vehicle-assignment/citizen/:citizenId
  * @desc Get assignments for a citizen
  * @access Private
  */
-router.get("/citizen/:citizenId", VehicleAssignmentController.getCitizenAssignments);
+router.get("/citizen/:citizenId", vehicleAssignment_controller_1.VehicleAssignmentController.getCitizenAssignments);
 /**
  * @route PUT /api/vehicle-assignment/:assignmentId/approve
  * @desc Approve vehicle assignment
  * @access Private (Admin/Organization)
  */
-router.put("/:assignmentId/approve", VehicleAssignmentController.approveAssignment);
+router.put("/:assignmentId/approve", vehicleAssignment_controller_1.VehicleAssignmentController.approveAssignment);
 /**
  * @route GET /api/vehicle-assignment/eligibility/:citizenId/:vehicleId
  * @desc Check driving eligibility
  * @access Private
  */
-router.get("/eligibility/:citizenId/:vehicleId", VehicleAssignmentController.checkDrivingEligibility);
+router.get("/eligibility/:citizenId/:vehicleId", vehicleAssignment_controller_1.VehicleAssignmentController.checkDrivingEligibility);
 /**
  * @route GET /api/vehicle-assignment/expiring
  * @desc Get expiring assignments
  * @access Private
  */
-router.get("/expiring", VehicleAssignmentController.getExpiringAssignments);
-export default router;
+router.get("/expiring", vehicleAssignment_controller_1.VehicleAssignmentController.getExpiringAssignments);
+exports.default = router;

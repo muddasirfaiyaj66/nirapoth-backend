@@ -1,13 +1,16 @@
-import { JWTService } from "../services/jwt.service";
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.authenticate = exports.fireServiceOrAdmin = exports.policeOrAdmin = exports.adminOnly = exports.authorizeRoles = exports.optionalAuth = exports.authenticateToken = void 0;
+const jwt_service_1 = require("../services/jwt.service");
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
 /**
  * Authentication middleware to verify JWT tokens
  * @param req - Express request object
  * @param res - Express response object
  * @param next - Express next function
  */
-export const authenticateToken = async (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
     try {
         // Get token from Authorization header or cookies
         let token;
@@ -47,7 +50,7 @@ export const authenticateToken = async (req, res, next) => {
         // Verify the token
         let decoded;
         try {
-            decoded = JWTService.verifyAccessToken(token);
+            decoded = jwt_service_1.JWTService.verifyAccessToken(token);
             if (process.env.NODE_ENV === "development") {
                 console.log("🔍 Token verified successfully for userId:", decoded.userId);
             }
@@ -120,13 +123,14 @@ export const authenticateToken = async (req, res, next) => {
         });
     }
 };
+exports.authenticateToken = authenticateToken;
 /**
  * Optional authentication middleware - doesn't fail if no token is provided
  * @param req - Express request object
  * @param res - Express response object
  * @param next - Express next function
  */
-export const optionalAuth = async (req, res, next) => {
+const optionalAuth = async (req, res, next) => {
     try {
         // Get token from Authorization header or cookies
         let token;
@@ -139,7 +143,7 @@ export const optionalAuth = async (req, res, next) => {
         }
         if (token) {
             // Try to verify the token
-            const decoded = JWTService.verifyAccessToken(token);
+            const decoded = jwt_service_1.JWTService.verifyAccessToken(token);
             // Fetch user from database
             const user = await prisma.user.findUnique({
                 where: { id: decoded.userId },
@@ -173,12 +177,13 @@ export const optionalAuth = async (req, res, next) => {
         next();
     }
 };
+exports.optionalAuth = optionalAuth;
 /**
  * Role-based authorization middleware
  * @param allowedRoles - Array of roles that are allowed to access the route
  * @returns Middleware function
  */
-export const authorizeRoles = (allowedRoles) => {
+const authorizeRoles = (allowedRoles) => {
     return (req, res, next) => {
         if (!req.user) {
             res.status(401).json({
@@ -199,19 +204,20 @@ export const authorizeRoles = (allowedRoles) => {
         next();
     };
 };
+exports.authorizeRoles = authorizeRoles;
 /**
  * Admin only middleware
  */
-export const adminOnly = authorizeRoles(["ADMIN"]);
+exports.adminOnly = (0, exports.authorizeRoles)(["ADMIN"]);
 /**
  * Police or Admin middleware
  */
-export const policeOrAdmin = authorizeRoles(["ADMIN", "POLICE"]);
+exports.policeOrAdmin = (0, exports.authorizeRoles)(["ADMIN", "POLICE"]);
 /**
  * Fire Service or Admin middleware
  */
-export const fireServiceOrAdmin = authorizeRoles(["ADMIN", "FIRE_SERVICE"]);
+exports.fireServiceOrAdmin = (0, exports.authorizeRoles)(["ADMIN", "FIRE_SERVICE"]);
 /**
  * Alias for authenticateToken for backward compatibility
  */
-export const authenticate = authenticateToken;
+exports.authenticate = exports.authenticateToken;

@@ -1,32 +1,35 @@
-import { PrismaClient } from "@prisma/client";
-import { z } from "zod";
-const prisma = new PrismaClient();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ComplaintController = void 0;
+const client_1 = require("@prisma/client");
+const zod_1 = require("zod");
+const prisma = new client_1.PrismaClient();
 // Validation schemas
-const createComplaintSchema = z.object({
-    type: z.enum(["TRAFFIC", "INFRASTRUCTURE"]),
-    title: z.string().min(1, "Title is required"),
-    description: z.string().min(1, "Description is required"),
-    priority: z.enum(["HIGH", "MEDIUM", "LOW"]).optional(),
-    evidenceUrls: z.array(z.string().url()).optional(),
-    locationData: z.object({
-        latitude: z.number(),
-        longitude: z.number(),
-        address: z.string().min(1, "Address is required"),
-        city: z.string().optional(),
-        district: z.string().optional(),
-        division: z.string().optional(),
+const createComplaintSchema = zod_1.z.object({
+    type: zod_1.z.enum(["TRAFFIC", "INFRASTRUCTURE"]),
+    title: zod_1.z.string().min(1, "Title is required"),
+    description: zod_1.z.string().min(1, "Description is required"),
+    priority: zod_1.z.enum(["HIGH", "MEDIUM", "LOW"]).optional(),
+    evidenceUrls: zod_1.z.array(zod_1.z.string().url()).optional(),
+    locationData: zod_1.z.object({
+        latitude: zod_1.z.number(),
+        longitude: zod_1.z.number(),
+        address: zod_1.z.string().min(1, "Address is required"),
+        city: zod_1.z.string().optional(),
+        district: zod_1.z.string().optional(),
+        division: zod_1.z.string().optional(),
     }),
 });
-const updateComplaintStatusSchema = z.object({
-    status: z.enum(["PENDING", "IN_PROGRESS", "RESOLVED", "CLOSED"]),
-    notes: z.string().optional(),
+const updateComplaintStatusSchema = zod_1.z.object({
+    status: zod_1.z.enum(["PENDING", "IN_PROGRESS", "RESOLVED", "CLOSED"]),
+    notes: zod_1.z.string().optional(),
 });
-const assignComplaintSchema = z.object({
-    complaintId: z.string().uuid("Invalid complaint ID"),
-    stationId: z.string().uuid("Invalid station ID"),
-    assignedOfficerId: z.string().uuid("Invalid officer ID").optional(),
+const assignComplaintSchema = zod_1.z.object({
+    complaintId: zod_1.z.string().uuid("Invalid complaint ID"),
+    stationId: zod_1.z.string().uuid("Invalid station ID"),
+    assignedOfficerId: zod_1.z.string().uuid("Invalid officer ID").optional(),
 });
-export class ComplaintController {
+class ComplaintController {
     /**
      * Get all complaints with pagination and filtering
      */
@@ -225,7 +228,7 @@ export class ComplaintController {
         }
         catch (error) {
             console.error("Error creating complaint:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -296,7 +299,7 @@ export class ComplaintController {
         }
         catch (error) {
             console.error("Error updating complaint status:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -378,7 +381,7 @@ export class ComplaintController {
         }
         catch (error) {
             console.error("Error assigning complaint:", error);
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 res.status(400).json({
                     success: false,
                     message: "Validation error",
@@ -476,3 +479,4 @@ export class ComplaintController {
         }
     }
 }
+exports.ComplaintController = ComplaintController;

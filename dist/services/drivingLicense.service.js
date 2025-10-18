@@ -1,4 +1,6 @@
-import { prisma } from "../lib/prisma";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const prisma_1 = require("../lib/prisma");
 class DrivingLicenseService {
     /**
      * Create a new driving license with initial 10 gems
@@ -6,7 +8,7 @@ class DrivingLicenseService {
     async createLicense(data) {
         const { restrictions, endorsements, ...rest } = data;
         // Check if citizen already has an active license
-        const existingLicense = await prisma.drivingLicense.findFirst({
+        const existingLicense = await prisma_1.prisma.drivingLicense.findFirst({
             where: {
                 citizenId: data.citizenId,
                 isActive: true,
@@ -16,13 +18,13 @@ class DrivingLicenseService {
             throw new Error("Citizen already has an active driving license");
         }
         // Check if license number is already in use
-        const licenseExists = await prisma.drivingLicense.findUnique({
+        const licenseExists = await prisma_1.prisma.drivingLicense.findUnique({
             where: { licenseNo: data.licenseNo },
         });
         if (licenseExists) {
             throw new Error("License number already exists");
         }
-        return await prisma.drivingLicense.create({
+        return await prisma_1.prisma.drivingLicense.create({
             data: {
                 ...rest,
                 gems: 10, // Initial 10 gems bonus
@@ -55,7 +57,7 @@ class DrivingLicenseService {
      * Get citizen's driving license
      */
     async getLicenseByUserId(citizenId) {
-        const license = await prisma.drivingLicense.findFirst({
+        const license = await prisma_1.prisma.drivingLicense.findFirst({
             where: {
                 citizenId,
                 isActive: true,
@@ -98,7 +100,7 @@ class DrivingLicenseService {
      * Get license by ID
      */
     async getLicenseById(licenseId) {
-        const license = await prisma.drivingLicense.findUnique({
+        const license = await prisma_1.prisma.drivingLicense.findUnique({
             where: { id: licenseId },
             include: {
                 citizen: {
@@ -138,7 +140,7 @@ class DrivingLicenseService {
      * Get license by license number
      */
     async getLicenseByLicenseNo(licenseNo) {
-        const license = await prisma.drivingLicense.findUnique({
+        const license = await prisma_1.prisma.drivingLicense.findUnique({
             where: { licenseNo },
             include: {
                 citizen: {
@@ -179,7 +181,7 @@ class DrivingLicenseService {
      */
     async updateLicense(licenseId, data) {
         const { restrictions, endorsements, ...rest } = data;
-        return await prisma.drivingLicense.update({
+        return await prisma_1.prisma.drivingLicense.update({
             where: { id: licenseId },
             data: {
                 ...rest,
@@ -217,7 +219,7 @@ class DrivingLicenseService {
         if (gemsToDeduct <= 0) {
             throw new Error("Gems to deduct must be positive");
         }
-        const license = await prisma.drivingLicense.findUnique({
+        const license = await prisma_1.prisma.drivingLicense.findUnique({
             where: { id: licenseId },
         });
         if (!license) {
@@ -228,7 +230,7 @@ class DrivingLicenseService {
         }
         const newGems = Math.max(0, license.gems - gemsToDeduct);
         const shouldBlacklist = newGems === 0;
-        const updatedLicense = await prisma.drivingLicense.update({
+        const updatedLicense = await prisma_1.prisma.drivingLicense.update({
             where: { id: licenseId },
             data: {
                 gems: newGems,
@@ -289,7 +291,7 @@ class DrivingLicenseService {
      * Pay blacklist penalty and allow reapplication
      */
     async payBlacklistPenalty(licenseId) {
-        const license = await prisma.drivingLicense.findUnique({
+        const license = await prisma_1.prisma.drivingLicense.findUnique({
             where: { id: licenseId },
         });
         if (!license) {
@@ -298,7 +300,7 @@ class DrivingLicenseService {
         if (!license.isBlacklisted) {
             throw new Error("License is not blacklisted");
         }
-        await prisma.drivingLicense.update({
+        await prisma_1.prisma.drivingLicense.update({
             where: { id: licenseId },
             data: {
                 blacklistPenaltyPaid: true,
@@ -310,7 +312,7 @@ class DrivingLicenseService {
      * Check if license is valid for driving
      */
     async isLicenseValid(licenseId) {
-        const license = await prisma.drivingLicense.findUnique({
+        const license = await prisma_1.prisma.drivingLicense.findUnique({
             where: { id: licenseId },
         });
         if (!license) {
@@ -345,7 +347,7 @@ class DrivingLicenseService {
      * Get all blacklisted licenses
      */
     async getBlacklistedLicenses() {
-        return await prisma.drivingLicense.findMany({
+        return await prisma_1.prisma.drivingLicense.findMany({
             where: {
                 isBlacklisted: true,
             },
@@ -375,4 +377,4 @@ class DrivingLicenseService {
         });
     }
 }
-export default new DrivingLicenseService();
+exports.default = new DrivingLicenseService();

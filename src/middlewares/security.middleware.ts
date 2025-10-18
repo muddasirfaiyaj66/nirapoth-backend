@@ -36,10 +36,17 @@ export const corsOptions = {
       // SSLCommerz callback origins
       "https://sandbox.sslcommerz.com",
       "https://securepay.sslcommerz.com",
+      // Vercel preview deployments
+      "https://nirapoth.vercel.app",
+      "https://nirapoth-web.vercel.app",
     ].filter(Boolean) as string[];
 
-    // Allow exact matches or any *.sslcommerz.com origin (gateway callbacks)
-    if (allowedOrigins.includes(origin) || origin.includes("sslcommerz.com")) {
+    // Allow exact matches, Vercel preview URLs, or SSLCommerz origins
+    if (
+      allowedOrigins.includes(origin) ||
+      origin.includes("sslcommerz.com") ||
+      (origin.includes("nirapoth") && origin.includes("vercel.app"))
+    ) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
@@ -56,6 +63,13 @@ export const corsOptions = {
     "Authorization",
     "Cache-Control",
     "Pragma",
+    "X-Auth-Token",
+  ],
+  exposedHeaders: [
+    "Authorization",
+    "X-Auth-Token",
+    "X-Response-Time",
+    "Set-Cookie",
   ],
 };
 

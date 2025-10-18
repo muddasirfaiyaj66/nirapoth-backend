@@ -1,16 +1,18 @@
+"use strict";
 /**
  * Script to populate BD Geographical Data
  * Run with: pnpm run populate-bd-geo
  */
-import { PrismaClient } from "@prisma/client";
-import { populateAllBDGeoData } from "../services/bdGeo.service";
-const prisma = new PrismaClient();
+Object.defineProperty(exports, "__esModule", { value: true });
+const client_1 = require("@prisma/client");
+const bdGeo_service_1 = require("../services/bdGeo.service");
+const prisma = new client_1.PrismaClient();
 async function main() {
     try {
         console.log("🇧🇩 Bangladesh Geographical Data Population Script\n");
         console.log("This will fetch and store divisions, districts, and upazilas");
         console.log("from bdapi.vercel.app into your database.\n");
-        await populateAllBDGeoData();
+        await (0, bdGeo_service_1.populateAllBDGeoData)();
         // Show statistics
         const [divisionCount, districtCount, upazilaCount] = await Promise.all([
             prisma.division.count(),

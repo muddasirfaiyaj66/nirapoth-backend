@@ -1,8 +1,47 @@
-import axios from "axios";
-import { EmailService } from "./email.service";
-import { prisma } from "../lib/prisma";
-const emailService = new EmailService();
-export class SSLCommerzService {
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.sslCommerzService = exports.SSLCommerzService = void 0;
+const axios_1 = __importDefault(require("axios"));
+const email_service_1 = require("./email.service");
+const prisma_1 = require("../lib/prisma");
+const emailService = new email_service_1.EmailService();
+class SSLCommerzService {
     config;
     baseURL;
     constructor() {
@@ -29,7 +68,7 @@ export class SSLCommerzService {
                 store_passwd: this.config.store_passwd,
                 ...data,
             };
-            const response = await axios.post(`${this.baseURL}/gwprocess/v4/api.php`, new URLSearchParams(paymentData).toString(), {
+            const response = await axios_1.default.post(`${this.baseURL}/gwprocess/v4/api.php`, new URLSearchParams(paymentData).toString(), {
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
                 },
@@ -64,7 +103,7 @@ export class SSLCommerzService {
      */
     async validatePayment(validationData) {
         try {
-            const response = await axios.get(`${this.baseURL}/validator/api/validationserverAPI.php`, {
+            const response = await axios_1.default.get(`${this.baseURL}/validator/api/validationserverAPI.php`, {
                 params: {
                     val_id: validationData.val_id,
                     store_id: validationData.store_id,
@@ -109,7 +148,7 @@ export class SSLCommerzService {
                 refund_remarks: refundRemarks,
                 format: "json",
             };
-            const response = await axios.post(`${this.baseURL}/validator/api/merchantTransIDvalidationAPI.php`, new URLSearchParams(refundData).toString(), {
+            const response = await axios_1.default.post(`${this.baseURL}/validator/api/merchantTransIDvalidationAPI.php`, new URLSearchParams(refundData).toString(), {
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
                 },
@@ -142,7 +181,7 @@ export class SSLCommerzService {
      */
     async queryTransaction(transactionId) {
         try {
-            const response = await axios.get(`${this.baseURL}/validator/api/merchantTransIDvalidationAPI.php`, {
+            const response = await axios_1.default.get(`${this.baseURL}/validator/api/merchantTransIDvalidationAPI.php`, {
                 params: {
                     tran_id: transactionId,
                     store_id: this.config.store_id,
@@ -179,7 +218,7 @@ export class SSLCommerzService {
         try {
             // Fetch fine and user details
             const [fine, user] = await Promise.all([
-                prisma.fine.findUnique({
+                prisma_1.prisma.fine.findUnique({
                     where: { id: fineId },
                     include: {
                         violation: {
@@ -190,7 +229,7 @@ export class SSLCommerzService {
                         },
                     },
                 }),
-                prisma.user.findUnique({
+                prisma_1.prisma.user.findUnique({
                     where: { id: userId },
                 }),
             ]);
@@ -231,7 +270,7 @@ export class SSLCommerzService {
                 product_profile: "general",
             };
             // Create payment record in database (PENDING status)
-            const payment = await prisma.payment.create({
+            const payment = await prisma_1.prisma.payment.create({
                 data: {
                     userId,
                     fineId,
@@ -255,7 +294,7 @@ export class SSLCommerzService {
             }
             else {
                 // Delete payment record if initialization failed
-                await prisma.payment.delete({
+                await prisma_1.prisma.payment.delete({
                     where: { id: payment.id },
                 });
                 return {
@@ -280,7 +319,7 @@ export class SSLCommerzService {
         try {
             // Fetch fines and user details
             const [fines, user] = await Promise.all([
-                prisma.fine.findMany({
+                prisma_1.prisma.fine.findMany({
                     where: {
                         id: { in: fineIds },
                         status: "UNPAID",
@@ -294,7 +333,7 @@ export class SSLCommerzService {
                         },
                     },
                 }),
-                prisma.user.findUnique({
+                prisma_1.prisma.user.findUnique({
                     where: { id: userId },
                 }),
             ]);
@@ -330,7 +369,7 @@ export class SSLCommerzService {
                 product_profile: "general",
             };
             // Create payment records for each fine (PENDING status)
-            const paymentPromises = fines.map((fine) => prisma.payment.create({
+            const paymentPromises = fines.map((fine) => prisma_1.prisma.payment.create({
                 data: {
                     userId,
                     fineId: fine.id,
@@ -356,7 +395,7 @@ export class SSLCommerzService {
             }
             else {
                 // Delete payment records if initialization failed
-                await prisma.payment.deleteMany({
+                await prisma_1.prisma.payment.deleteMany({
                     where: {
                         id: { in: payments.map((p) => p.id) },
                     },
@@ -383,10 +422,10 @@ export class SSLCommerzService {
         try {
             // Fetch debt and user details
             const [debt, user] = await Promise.all([
-                prisma.outstandingDebt.findUnique({
+                prisma_1.prisma.outstandingDebt.findUnique({
                     where: { id: debtId },
                 }),
-                prisma.user.findUnique({
+                prisma_1.prisma.user.findUnique({
                     where: { id: userId },
                 }),
             ]);
@@ -493,9 +532,9 @@ export class SSLCommerzService {
                 }
                 const debtId = debtIdMatch[1];
                 // Import DebtManagementService
-                const { DebtManagementService } = await import("./debtManagement.service");
+                const { DebtManagementService } = await Promise.resolve().then(() => __importStar(require("./debtManagement.service")));
                 // Wrap the full debt handling flow in a DB transaction
-                return await prisma.$transaction(async (tx) => {
+                return await prisma_1.prisma.$transaction(async (tx) => {
                     // 1) Update debt record
                     const updatedDebt = await DebtManagementService.recordPayment(debtId, amount, bankTranId, tx);
                     console.log("✅ Debt payment recorded:", {
@@ -540,7 +579,7 @@ export class SSLCommerzService {
             }
             // Otherwise, handle as FINE payment (existing logic)
             // Find payment record
-            const payment = await prisma.payment.findFirst({
+            const payment = await prisma_1.prisma.payment.findFirst({
                 where: { transactionId },
                 include: {
                     fine: {
@@ -563,7 +602,7 @@ export class SSLCommerzService {
                 };
             }
             // Wrap fine payment update in a transaction
-            const updatedPayment = await prisma.$transaction(async (tx) => {
+            const updatedPayment = await prisma_1.prisma.$transaction(async (tx) => {
                 const up = await tx.payment.update({
                     where: { id: payment.id },
                     data: {
@@ -656,12 +695,12 @@ export class SSLCommerzService {
         try {
             const transactionId = data.tran_id;
             // Find payment record
-            const payment = await prisma.payment.findFirst({
+            const payment = await prisma_1.prisma.payment.findFirst({
                 where: { transactionId },
             });
             if (payment) {
                 // Update payment status
-                await prisma.payment.update({
+                await prisma_1.prisma.payment.update({
                     where: { id: payment.id },
                     data: {
                         paymentStatus: "FAILED",
@@ -689,12 +728,12 @@ export class SSLCommerzService {
         try {
             const transactionId = data.tran_id;
             // Find payment record
-            const payment = await prisma.payment.findFirst({
+            const payment = await prisma_1.prisma.payment.findFirst({
                 where: { transactionId },
             });
             if (payment) {
                 // Delete payment record for cancelled payments
-                await prisma.payment.delete({
+                await prisma_1.prisma.payment.delete({
                     where: { id: payment.id },
                 });
             }
@@ -713,4 +752,5 @@ export class SSLCommerzService {
         }
     }
 }
-export const sslCommerzService = new SSLCommerzService();
+exports.SSLCommerzService = SSLCommerzService;
+exports.sslCommerzService = new SSLCommerzService();

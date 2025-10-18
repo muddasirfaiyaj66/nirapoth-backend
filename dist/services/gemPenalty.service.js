@@ -1,5 +1,8 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.GemPenaltyService = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
 // Gem deduction amounts based on severity (Max gem balance is 10)
 const GEM_DEDUCTION_RATES = {
     MINOR: 1, // Small violations: parking, seatbelt
@@ -8,7 +11,7 @@ const GEM_DEDUCTION_RATES = {
     SEVERE: 5, // Very dangerous: drunk driving, no license
     CRITICAL: 10, // Life-threatening: causes accident, fleeing scene
 };
-export class GemPenaltyService {
+class GemPenaltyService {
     /**
      * Apply gem penalty to a citizen for a violation
      */
@@ -316,3 +319,4 @@ export class GemPenaltyService {
         }
     }
 }
+exports.GemPenaltyService = GemPenaltyService;
